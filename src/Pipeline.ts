@@ -403,4 +403,41 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
 
     return this.process(payload)
   }
+
+  clone() {
+    return new (Object.getPrototypeOf(this).constructor)(
+      this.stages, 
+      this.options
+    )
+  }
+
+  parallel(
+    payloads: Array<Payload>,
+    merger: (toMerge:Array<Payload>, parent: ParentPipelineInterface) => Payload
+  ): Promise<Payload> {
+    return new Promise((resolve, reject) => {
+      let outputs:Array<Payload> = []
+      let done: Array<boolean> = []
+      let pipelines: Array<MinimalPipelineInterface> = []
+      for (let pipelineIndex = 0; pipelineIndex < payloads.length; pipelineIndex++) {
+        let payload = payloads[pipelineIndex];
+        pipelines.push(this.clone())
+        done.push(false)
+        pipelines[pipelineIndex].parent = this
+        let output: Promise<Payload> = (pipelines[pipelineIndex].process(payload) as Promise<Payload>)
+        output.catch((err) => {
+
+        })
+        // @ts-ignore
+        .then((newload: Payload) => {
+          outputs[pipelineIndex] = newload
+          done[pipelineIndex] = true
+          let complete = (this.done?.indexOf(false) === -1)
+          if (complete) {
+            resolve(merger(outputs, this))
+          }
+        })
+      }
+    })
+  }
 }
