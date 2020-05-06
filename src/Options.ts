@@ -24,7 +24,7 @@ export type outputOptions = {
   save?: string | boolean
 }
 
-export type filterOptions = {
+export type hookOptions = {
   pipeable: Pipeable
   options?: PipelineOptions
 }
@@ -40,5 +40,8 @@ export type PipelineOptions = {
   failOnInterruption?: boolean
   eventListeners?: PipelineEventListenerOptions
   output?: outputOptions
-  filter?: filterOptions
+  filter?: hookOptions
+  hooks?: {
+    [key: string]: hookOptions
+  }
 }
