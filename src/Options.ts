@@ -1,6 +1,7 @@
 import { LogLevels } from "./Log"
 import { PipelineEventList, PipelineEventListener } from "./Event"
 import { Payload } from "./Payload"
+import { Pipeable } from "./Pipeline"
 
 export type LogOptions = {
   keep?: boolean
@@ -23,6 +24,11 @@ export type outputOptions = {
   save?: string | boolean
 }
 
+export type filterOptions = {
+  pipeable: Pipeable
+  options?: PipelineOptions
+}
+
 export type PipelineEventListenerOptions = {
   [key in keyof typeof PipelineEventList]?: PipelineEventListener | Array<PipelineEventListener>
 }
@@ -34,4 +40,5 @@ export type PipelineOptions = {
   failOnInterruption?: boolean
   eventListeners?: PipelineEventListenerOptions
   output?: outputOptions
+  filter?: filterOptions
 }

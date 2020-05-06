@@ -306,35 +306,6 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     return complete
   }
 
-  asStage(
-    payload: Payload,
-    parent?: ParentPipelineInterface,
-    index?: number
-  ) {
-    if (parent) {
-      this.parent = parent
-    }
-    if (index) {
-      this.parentIndex = index
-    }
-
-    return this.process(payload)
-  }
-
-  savePayload(payload: Payloadable, path?: string) {
-    if (!path) {
-      path = `${this.name}_${Date.now()}_payload.json`
-    }
-
-    let d:writePayload = {
-      to: path,
-      data: JSON.stringify(payload, null, 2),
-      path: path
-    }
-
-    WriteFile(d, this).catch((err) => {})
-  }
-
   readPayload(path: string): Payload {
     let s = [
       ReadFile,
@@ -356,6 +327,39 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
       path: path
     })
   }
+
+  savePayload(payload: Payloadable, path?: string) {
+    if (!path) {
+      path = `${this.name}_${Date.now()}_payload.json`
+    }
+
+    let d:writePayload = {
+      to: path,
+      data: JSON.stringify(payload, null, 2),
+      path: path
+    }
+
+    WriteFile(d, this).catch((err) => {})
+  }
+
+  async filterPayload(payload: Payloadable): Promise<Payloadable> {
+    if (this.options.filter === undefined) {
+      return payload
+    }
+    else {
+      let filterPipeline = new Pipeline(
+        this.options.filter.pipeable,
+        this.options.filter.options
+      )
+
+      filterPipeline.parent = this
+      filterPipeline.parentIndex = 999999998
+
+      payload = await filterPipeline.process(payload)
+
+    }
+    return payload
+  }
   
   process(payload: Payload, start: number = 0, options?: PipelineOptions): Promise<Payload> {
     this.running = true
@@ -366,7 +370,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     this.triggerEventListener('start', payload, start)
 
     return new Promise(async (resolve, reject) => {
-        let stageOutput = payload
+        let stageOutput = await this.filterPayload(payload)
         let index = start
         while (!this.completed(undefined, stageOutput, resolve) && this.running) {
           try {
@@ -383,5 +387,20 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         this.completed(undefined, stageOutput, resolve)
       }
     )
+  }
+
+  asStage(
+    payload: Payload,
+    parent?: ParentPipelineInterface,
+    index?: number
+  ) {
+    if (parent) {
+      this.parent = parent
+    }
+    if (index) {
+      this.parentIndex = index
+    }
+
+    return this.process(payload)
   }
 }
