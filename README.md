@@ -9,16 +9,16 @@ This README would normally document whatever steps are necessary to get your app
 
 ### Install ###
 
-* All of that :
+All of that :
 
-* Summary of set up
 * Configuration
 * Dependencies
-* Database configuration
 * How to run tests
 * Deployment instructions
 
 ### Contribution guidelines ###
+
+If you really want to you can :
 
 * Writing tests
 * Code review
