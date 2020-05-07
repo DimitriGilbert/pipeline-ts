@@ -11,8 +11,10 @@
   "author": "DimitriGilbert",
   "license": "MIT",
   "dependencies": {
+    "@types/axios": "^0.14.0",
     "@types/fs-readdir-recursive": "^1.0.0",
     "@types/node": "^13.13.4",
+    "axios": "^0.19.2",
     "fs-readdir-recursive": "^1.1.0",
     "ts-node": "^8.10.1",
     "ts-type-guards": "^0.6.1",
