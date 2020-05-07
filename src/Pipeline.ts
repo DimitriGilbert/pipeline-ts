@@ -150,6 +150,33 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     return false
   }
 
+  triggerHook(name: string, payload: Payload, index?: number): Promise<Payload> {
+    return new Promise((resolve, reject) => {
+      if (
+        !this.options.hooks ||
+        (this.options.hooks && !this.options.hooks[name])
+      ) {
+        resolve(payload)
+      }
+      else {
+        let hookPipeline = new Pipeline(
+          this.options.hooks[name].pipeable,
+          this.options.hooks[name].options
+        )
+        hookPipeline.parent = this
+        hookPipeline.parentIndex = 999999998
+
+        hookPipeline.process(payload).catch((err) => {
+          this.error(index?index:999999997, 'hook error', err)
+          reject(err)
+        }).then((hookPayload) => {
+          // @ts-ignore
+          resolve(hookPayload)
+        })
+      }
+    })
+  }
+
   triggerEventListener(name: string, payload?: Payload, index?: number): void {
     if (name in PipelineEventList
       && this.options.eventListeners
@@ -344,25 +371,6 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
 
     WriteFile(d, this).catch((err) => {})
   }
-
-  async filterPayload(payload: Payloadable): Promise<Payloadable> {
-    if (this.options.filter === undefined) {
-      return payload
-    }
-    else {
-      let filterPipeline = new Pipeline(
-        this.options.filter.pipeable,
-        this.options.filter.options
-      )
-
-      filterPipeline.parent = this
-      filterPipeline.parentIndex = 999999998
-
-      payload = await filterPipeline.process(payload)
-
-    }
-    return payload
-  }
   
   process(payload: Payload, start: number = 0, options?: PipelineOptions): Promise<Payload> {
     this.running = true
@@ -373,7 +381,8 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     this.triggerEventListener('start', payload, start)
 
     return new Promise(async (resolve, reject) => {
-        let stageOutput = await this.filterPayload(payload)
+      let stageOutput = await this.triggerHook('filter', payload, -1)
+      // let stageOutput = payload
         let index = start
         while (!this.completed(undefined, stageOutput, resolve) && this.running) {
           try {

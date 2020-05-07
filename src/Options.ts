@@ -40,7 +40,6 @@ export type PipelineOptions = {
   failOnInterruption?: boolean
   eventListeners?: PipelineEventListenerOptions
   output?: outputOptions
-  filter?: hookOptions
   hooks?: {
     [key: string]: hookOptions
   }
