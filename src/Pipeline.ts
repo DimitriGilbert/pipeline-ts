@@ -14,6 +14,7 @@ export interface PipeablePipelineInterface {
 
 export type PipeableBase = StageBase | PipeablePipelineInterface
 export type Pipeable = PipeableBase | Array<PipeableBase>
+export type PipeableCondition = (payload: Payload, parent: ParentPipelineInterface) => boolean
 
 export function isPipeablePipeline(param: any): param is PipeablePipelineInterface {
   return is(Object)(param) && is(Function)(param.asStage)
@@ -55,12 +56,13 @@ export interface MinimalPipelineInterface extends ParentPipelineInterface, Pipea
   running?: boolean;
   interupted?: boolean;
   errors?: Array<any>;
-  pipe(stage: Pipeable): this
+  pipe(stage: Pipeable, condition?: PipeableCondition): this
   process(payload:Payload, start?: number, options?: PipelineOptions): Payload
 }
 
 export class PipelineProperties {
   stages: Array<StageBase> = []
+  stageConditions: Array<PipeableCondition | undefined> = []
   logs: Array<LogEntry> = []
   options: PipelineOptions = {};
   parent?: ParentPipelineInterface;
@@ -178,12 +180,12 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     }
   }
 
-  pipe(stage: Pipeable): this {
+  pipe(stage: Pipeable, condition?: PipeableCondition): this {
     this.triggerEventListener('pipe', {stage: stage})
 
     if (isPipes(stage)) {
       stage.forEach((s) => {
-        this.pipe(s)
+        this.pipe(s, condition)
       })
     }
     
@@ -192,14 +194,15 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     }
 
     if (isStage(stage)) {
-      this.addStage(stage)
+      this.addStage(stage, condition)
     }
 
     return this
   }
 
-  addStage(stage: StageBase): this {
+  addStage(stage: StageBase, condition?: PipeableCondition): this {
     this.stages.push(stage)
+    this.stageConditions.push(condition)
     this.done?.push(false)
     this.triggerEventListener('addStage', {stage: stage})
     return this
@@ -375,7 +378,13 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         while (!this.completed(undefined, stageOutput, resolve) && this.running) {
           try {
             this.triggerEventListener('beforeStage', stageOutput, index)
-            stageOutput = await this.stages[index](stageOutput, this, index)
+            if (
+              this.stageConditions[index] === undefined || 
+              // @ts-ignore
+              (this.stageConditions[index] && this.stageConditions[index](stageOutput, this))
+            ) {
+              stageOutput = await this.stages[index](stageOutput, this, index)
+            }
             this.triggerEventListener('afterStage', stageOutput, index)
             this.completed(index, stageOutput, resolve)
             index++
