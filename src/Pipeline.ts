@@ -85,6 +85,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     if (name) {
       this._name = name
     }
+    this.running = false
   }
 
   get name(): string {
