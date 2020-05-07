@@ -423,18 +423,19 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         let payload = payloads[pipelineIndex];
         pipelines.push(this.clone())
         done.push(false)
-        pipelines[pipelineIndex].parent = this
-        let output: Promise<Payload> = (pipelines[pipelineIndex].process(payload) as Promise<Payload>)
-        output.catch((err) => {
-
+        pipelines[pipelineIndex].parent = this;
+        (pipelines[pipelineIndex].process(payload) as Promise<Payload>).catch((err:any) => {
+          this.error(pipelineIndex, 'parallel error', err)
         })
         // @ts-ignore
         .then((newload: Payload) => {
           outputs[pipelineIndex] = newload
           done[pipelineIndex] = true
-          let complete = (this.done?.indexOf(false) === -1)
+          let complete = (done.indexOf(false) === -1)
           if (complete) {
-            resolve(merger(outputs, this))
+            let out_ = merger(outputs, this)
+            resolve(out_)
+            this.triggerEventListener('complete', out_)
           }
         })
       }
