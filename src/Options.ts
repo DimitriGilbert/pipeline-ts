@@ -30,7 +30,7 @@ export type hookOptions = {
 }
 
 export type PipelineEventListenerOptions = {
-  [key in keyof typeof PipelineEventList]?: PipelineEventListener | Array<PipelineEventListener>
+  [key: string]: PipelineEventListener | Array<PipelineEventListener>
 }
 
 export type PipelineOptions = {

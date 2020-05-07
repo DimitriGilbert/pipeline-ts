@@ -3,14 +3,13 @@ import { is } from "ts-type-guards";
 export type Payloadable = {
   [key: string]: any
 }
-export type PayloadBase = Payloadable | Array<Payloadable>
-export type Payload = PayloadBase | Promise<PayloadBase>
+export type Payload = Payloadable | Array<Payloadable> | Promise<Payloadable | Array<Payloadable>>
 
-export function isPromise(param: any): param is Promise<PayloadBase> {
+export function isPromise(param: any): param is Promise<Payloadable> {
   return is(Promise)(param)
 }
 
-export function isArray(param: any): param is Array<PayloadBase> {
+export function isArray(param: any): param is Array<Payloadable> {
   return is(Array)(param)
 }
 

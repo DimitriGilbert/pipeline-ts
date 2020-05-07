@@ -2,7 +2,7 @@ import { is, isArrayOf } from "ts-type-guards";
 import { PipelineOptions, PipelineEventListenerOptions } from "./Options";
 import { LogEntry } from "./Log";
 import { StageBase, isStage } from "./Stage";
-import { Payload, isPromise, Payloadable, PayloadBase } from "./Payload";
+import { Payload, isPromise, Payloadable } from "./Payload";
 import { PipelineEventListener, PipelineEventList, PipelineEventListenerData } from "./Event";
 import { WriteFile, ReadFile } from "./fs/Stage";
 import { WriteFileOptions } from "fs";
@@ -13,7 +13,7 @@ export interface PipeablePipelineInterface {
 }
 
 export type PipeableBase = StageBase | PipeablePipelineInterface
-export type Pipeable = PipeableBase | Array<PipeableBase>
+export type Pipeable =  StageBase | PipeablePipelineInterface | Array<StageBase | PipeablePipelineInterface>
 export type PipeableCondition = (payload: Payload, parent: ParentPipelineInterface) => boolean
 
 export function isPipeablePipeline(param: any): param is PipeablePipelineInterface {
@@ -45,7 +45,7 @@ export interface ParentPipelineInterface {
   completed(
     currentIndex?: number,
     payload?: Payload,
-    resolve?: (value?: Payloadable | Payloadable[] | Promise<PayloadBase> | PromiseLike<Payload>) => void
+    resolve?: (value?: Payload) => void
   ): boolean
   error(currentIndex: number | undefined, message: string, payload: Payloadable, data?: any): void
   savePayload(payload: Payloadable, path?: string): void
@@ -276,14 +276,14 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
   completed(
     currentIndex?: number,
     payload?: Payload,
-    resolve?: (value?: Payloadable | Payloadable[] | Promise<PayloadBase> | PromiseLike<Payload> | undefined) => void
+    resolve?: (value?: Payload) => void
   ): boolean {
     if (currentIndex !== undefined && this.done && !this.done[currentIndex]) {
       this.done[currentIndex] = true
     }
 
     function finish(
-      resolver: ((value?: Payloadable | Payloadable[] | Promise<PayloadBase> | PromiseLike<Payload> | undefined) => void),
+      resolver: ((value?: Payload) => void),
       output: Payload,
       t: MinimalPipelineInterface
     ): Payload {
