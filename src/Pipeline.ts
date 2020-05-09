@@ -1,15 +1,15 @@
 import { is, isArrayOf } from "ts-type-guards";
 import { PipelineOptions, PipelineEventListenerOptions } from "./Options";
 import { LogEntry } from "./Log";
-import { StageBase, isStage } from "./Stage";
+import { StageBase, isStage, Stage, isBetterStage } from "./Stage";
 import { Payload, isPromise, Payloadable } from "./Payload";
 import { PipelineEventListener, PipelineEventList, PipelineEventListenerData } from "./Event";
 import { WriteFile, ReadFile } from "./fs/Stage";
-import { WriteFileOptions } from "fs";
 import { writePayload } from "./fs/Payload";
 
 export interface PipeablePipelineInterface {
   asStage: StageBase
+  asBetterStage: () => Stage
 }
 
 export type PipeableBase = StageBase | PipeablePipelineInterface
@@ -460,4 +460,192 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
       }
     })
   }
+
+  /**
+   * Better Stage
+   */
+  stagesBetter: Array<Stage> = []
+  stageIndex: number = 0
+  status: string = 'empty'
+
+  pipeBetter(stage: PipeableBetter): this {
+    this.triggerEventListener('pipe', {stage: stage})
+
+    if (isBetterPipes(stage)) {
+      stage.forEach((s) => {
+        this.pipeBetter(s)
+      })
+    }
+    
+    if (isBetterPipeablePipeline(stage)) {
+      stage = stage.asBetterStage()
+    }
+
+    if (isBetterStage(stage)) {
+      this.addBetterStage(stage)
+    }
+
+    if (isStage(stage)) {
+      this.addBetterStage({
+        executor:stage,
+        done: false,
+        running:false
+      })
+    }
+
+    return this
+  }
+
+  addBetterStage(stage: Stage): this {
+    this.stagesBetter.push(stage)
+    if (this.status === 'empty') {
+      this.status = 'staged'
+    }
+    if (!stage.status) {
+      stage.status = 'ready'
+    }
+    this.triggerEventListener('addStage', {stage: stage})
+    return this
+  }
+
+  runStage(payload: Payload, index?: number): Promise<Payload> {
+    return new Promise((resolve, reject) => {
+      if (index === undefined) {
+        index = this.stageIndex
+      }
+      
+      if (!isPromise(payload)) {
+        this.stagesBetter[this.stageIndex].status = 'running'
+        this.stagesBetter[index].running = true
+        this.triggerEventListener('beforeStage', payload, index)
+        resolve(this.stagesBetter[index].executor(payload, this, index))
+      }
+      else {
+        let i = index
+        payload.then((stageLoad) => {
+          resolve(this.runStage(stageLoad, i))
+        }).catch((err) => {
+          this.error(i, 'previous stage error', err)
+          reject(err)
+        })
+      }
+    })
+  }
+  
+  processBetter(payload: Payload, start: number = 0, options?: PipelineOptions): Promise<Payload> {
+    return new Promise((resolve, reject) => {
+        this.running = true
+        this.status = 'running'
+        if (options) {
+          this.options = options
+        }
+        this.triggerEventListener('start', payload, start)
+
+        this.triggerHook('filter', payload, -1).then((filteredLoad) => {
+          this.triggerEventListener('filtered', filteredLoad, start)
+          this.stageIndex = start
+          let stageLoad = filteredLoad
+          while (this.running) {
+            if (this.stagesBetter[this.stageIndex].status === 'ready') {
+              this.triggerEventListener('readyStage', stageLoad, this.stageIndex)
+              let skip = false
+              if (this.stagesBetter[this.stageIndex].condition !== undefined) {
+                // @ts-ignore
+                skip != this.stagesBetter[this.stageIndex].condition(stageLoad, this)
+              }
+              if (!skip) {
+                this.runStage(stageLoad)
+                  .then((nextLoad) => {
+                    stageLoad = nextLoad
+                    this.stagesBetter[this.stageIndex].status = 'done'
+                    this.stagesBetter[this.stageIndex].running = false
+                    this.stagesBetter[this.stageIndex].done = true
+                    this.triggerEventListener('afterStage', stageLoad, this.stageIndex)
+                    this.stageIndex++
+                    if (this.stageIndex >= this.stagesBetter.length) {
+                      this.running = false
+                      this.status = 'done'
+                      this.triggerEventListener('done', stageLoad, this.stageIndex)
+                      this.triggerHook('output', stageLoad)
+                        .then((outputLoad) => {
+                          if (this.options?.output?.save) {
+                            let path
+                            if (typeof this.options.output.save === "string") {
+                              path = this.options.output.save
+                            }
+                            this.savePayload(outputLoad, path)
+                            this.triggerEventListener('saved', outputLoad, this.stageIndex)
+                          }
+                          resolve(outputLoad)
+                          this.status = 'completed'
+                          this.triggerEventListener('completed', outputLoad, this.stageIndex)
+                        })
+                        .catch((err) => {})
+                    }
+                  })
+                  .catch((err) => {
+                    this.error(this.stageIndex, 'stage error', err)
+                    reject(err)                    
+                  })
+              }
+              else {
+                this.stagesBetter[this.stageIndex].status = 'skiped'
+                this.stagesBetter[this.stageIndex].running = false
+                this.stagesBetter[this.stageIndex].done = true
+                this.triggerEventListener('stageSkiped', payload, this.stageIndex)
+                this.stageIndex++
+              }
+            }
+          }
+        }).catch((err) => {})
+      }
+    )
+  }
+
+  asBetterStage(): Stage {
+    return {
+      executor: this.asExecutor,
+      status: 'ready',
+      done: false,
+      running: false,
+      name: this.name
+    }    
+  }
+
+  asExecutor(
+    payload: Payload,
+    parent?: ParentPipelineInterface,
+    index?: number
+  ) {
+    if (parent) {
+      this.parent = parent
+    }
+    if (index) {
+      this.parentIndex = index
+    }
+
+    return this.processBetter(payload)
+  }
+}
+
+export type PipeableBetter = Stage | PipeablePipelineInterface
+
+export function isBetterPipeablePipeline(param: any): param is PipeablePipelineInterface {
+  return is(Object)(param) && is(Function)(param.asBetterStage)
+}
+
+export function isBetterPipes(param: any): param is Array<PipeableBetter> {
+  return isArrayOf(Object)(param) || isArrayOf(Function)(param)
+}
+
+export function isBetterPipe(param: any): param is PipeableBetter {
+  return is(Function)(param) || isBetterPipeablePipeline(param)
+}
+
+export function isBetterPipeable(param: any): param is PipeableBetter {
+  return param && (typeof param === "function" || (
+    typeof param === "object"
+    && param.stage
+    && typeof param.stage === "function"
+  ))
 }
