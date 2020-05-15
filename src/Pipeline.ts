@@ -1,19 +1,18 @@
 import { is, isArrayOf } from "ts-type-guards";
 import { PipelineOptions, PipelineEventListenerOptions } from "./Options";
 import { LogEntry } from "./Log";
-import { StageBase, isStage, Stage, isBetterStage, StageExecutor } from "./Stage";
+import { StageBase, isStage, Stage, isBetterStage, StageExecutor, isStageExecutor } from "./Stage";
 import { Payload, isPromise, Payloadable } from "./Payload";
 import { PipelineEventListener, PipelineEventList, PipelineEventListenerData } from "./Event";
 import { WriteFile, ReadFile } from "./fs/Stage";
 import { writePayload } from "./fs/Payload";
 
 export interface PipeablePipelineInterface {
-  asStage: StageBase
-  asBetterStage: () => Stage
+  asStage: () => Stage
 }
 
-export type PipeableBase = StageBase | PipeablePipelineInterface
-export type Pipeable =  StageBase | PipeablePipelineInterface | Array<StageBase | PipeablePipelineInterface>
+export type PipeableBase = Stage | PipeablePipelineInterface | StageExecutor
+export type Pipeable = PipeableBase | Array<PipeableBase>
 export type PipeableCondition = (payload: Payload, parent: ParentPipelineInterface) => boolean
 
 export function isPipeablePipeline(param: any): param is PipeablePipelineInterface {
@@ -42,11 +41,7 @@ export interface ParentPipelineInterface {
   parent?: ParentPipelineInterface
   parentIndex?: number
   log(currentIndex: number, log: LogEntry): void
-  completed(
-    currentIndex?: number,
-    payload?: Payload,
-    resolve?: (value?: Payload) => void
-  ): boolean
+  // completed(): boolean
   error(currentIndex: number | undefined, message: string, payload: Payloadable, data?: any): void
   savePayload(payload: Payloadable, path?: string): void
   readPayload(path: string): Payload
@@ -56,12 +51,14 @@ export interface MinimalPipelineInterface extends ParentPipelineInterface, Pipea
   running?: boolean;
   interupted?: boolean;
   errors?: Array<any>;
-  pipe(stage: Pipeable, condition?: PipeableCondition): this
+  pipe(stage: Pipeable): this
   process(payload:Payload, start?: number, options?: PipelineOptions): Payload
 }
 
 export class PipelineProperties {
-  stages: Array<StageBase> = []
+  stages: Array<Stage> = []
+  stageIndex: number = 0
+  status: string = 'empty'
   stageConditions: Array<PipeableCondition | undefined> = []
   logs: Array<LogEntry> = []
   options: PipelineOptions = {};
@@ -179,7 +176,6 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
   }
 
   triggerEventListener(name: string, payload?: Payload, index?: number): void {
-    console.log(name)
     if (
       // name in PipelineEventList
       this.options.eventListeners
@@ -210,32 +206,128 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     }
   }
 
-  pipe(stage: Pipeable, condition?: PipeableCondition): this {
+  pipe(stage: Pipeable): this {
     this.triggerEventListener('pipe', {stage: stage})
 
     if (isPipes(stage)) {
       stage.forEach((s) => {
-        this.pipe(s, condition)
+        this.pipe(s)
       })
     }
     
     if (isPipeablePipeline(stage)) {
-      stage = stage.asStage
+      stage = stage.asStage()
     }
 
     if (isStage(stage)) {
-      this.addStage(stage, condition)
+      this.addStage(stage)
+    }
+
+    if (isStageExecutor(stage)) {
+      this.addStage({
+        executor:stage,
+        done: false,
+        running:false
+      })
     }
 
     return this
   }
 
-  addStage(stage: StageBase, condition?: PipeableCondition): this {
+  addStage(stage: Stage): this {
     this.stages.push(stage)
-    this.stageConditions.push(condition)
-    this.done?.push(false)
+    if (this.status === 'empty') {
+      this.status = 'staged'
+    }
+    if (!stage.status) {
+      stage.status = 'ready'
+    }
     this.triggerEventListener('addStage', {stage: stage})
     return this
+  }
+
+  runStage(payload: Payload, index?: number): Promise<Payload> {
+    return new Promise((resolve, reject) => {
+      if (index === undefined) {
+        index = this.stageIndex
+      }
+      
+      if (!isPromise(payload)) {
+        this.stages[index].status = 'running'
+        this.stages[index].running = true
+        this.triggerEventListener('beforeStage', payload, index)
+        let nextload = this.stages[index].executor(payload, this, index)
+        resolve(nextload)
+      }
+      else {
+        let i = index
+        payload.then((stageLoad) => {
+          let nextLoad = this.runStage(stageLoad, i)
+          resolve(nextLoad)
+        }).catch((err) => {
+          this.error(i, 'previous stage error', err)
+          reject(err)
+        })
+      }
+    })
+  }
+
+  runCurrent(payload: Payload): Promise<Payload> {
+    return new Promise((resolve, reject) => {
+      if (this.stages[this.stageIndex].status === 'ready') {
+        this.triggerEventListener('readyStage', payload, this.stageIndex)
+        let skip = false
+        if (this.stages[this.stageIndex].condition !== undefined) {
+          // @ts-ignore
+          skip != this.stages[this.stageIndex].condition(payload, this)
+        }
+        if (!skip) {
+          this.runStage(payload)
+            .then((nextLoad) => {
+              nextLoad = nextLoad
+              this.stages[this.stageIndex].status = 'done'
+              this.stages[this.stageIndex].running = false
+              this.stages[this.stageIndex].done = true
+              this.triggerEventListener('afterStage', nextLoad, this.stageIndex)
+              this.stageIndex++
+              if (this.stageIndex >= this.stages.length) {
+                this.running = false
+                this.status = 'done'
+                this.triggerEventListener('done', nextLoad, this.stageIndex)
+                this.triggerHook('output', nextLoad)
+                  .then((outputLoad) => {
+                    if (this.options?.output?.save) {
+                      let path
+                      if (typeof this.options.output.save === "string") {
+                        path = this.options.output.save
+                      }
+                      this.savePayload(outputLoad, path)
+                      this.triggerEventListener('saved', outputLoad, this.stageIndex)
+                    }
+                    this.status = 'completed'
+                    this.triggerEventListener('completed', outputLoad, this.stageIndex)
+                    resolve(outputLoad)
+                  })
+                  .catch((err) => {})
+              }
+              else {
+                resolve(this.runCurrent(nextLoad))
+              }
+            })
+            .catch((err) => {
+              this.error(this.stageIndex, 'stage error', err)
+              reject(err)                    
+            })
+        }
+        else {
+          this.stages[this.stageIndex].status = 'skiped'
+          this.stages[this.stageIndex].running = false
+          this.stages[this.stageIndex].done = true
+          this.triggerEventListener('stageSkiped', payload, this.stageIndex)
+          this.stageIndex++
+        }
+      }
+    })
   }
 
   log(currentIndex: number, log: LogEntry): void {
@@ -276,69 +368,6 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     })
   }
 
-  completed(
-    currentIndex?: number,
-    payload?: Payload,
-    resolve?: (value?: Payload) => void
-  ): boolean {
-    if (currentIndex !== undefined && this.done && !this.done[currentIndex]) {
-      this.done[currentIndex] = true
-    }
-
-    function finish(
-      resolver: ((value?: Payload) => void),
-      output: Payload,
-      t: MinimalPipelineInterface
-    ): Payload {
-      if (t.options?.output?.clean) {
-        let c = t.options.output.clean
-        if (!is(Array)(c)) {
-          c = [c]
-        }
-        c.forEach((cleaner) => {
-          if (is(String)(cleaner)) {
-            // @ts-ignore
-            output[cleaner] = undefined
-            // @ts-ignore
-            delete output[cleaner]
-          }
-          else {
-            output = cleaner(output)
-          }
-        })
-      }
-
-      let o: Payload = {}
-      if (t.options?.output?.wrapper) {
-        o[t.options.output.wrapper] = output
-      }
-      else {
-        o = output
-      }
-
-      if (t.options?.output?.save) {
-        let path
-        if (typeof t.options.output.save === "string") {
-          path = t.options.output.save
-        }
-        t.savePayload(o, path)
-      }
-
-      resolver(o)
-      return o
-    }
-
-    let complete = (this.done?.indexOf(false) === -1)
-    if (complete && this.running) {
-      this.running = false
-      // @ts-ignore
-      let output_ = finish(resolve, payload, this)
-      this.triggerEventListener('complete', output_, currentIndex)
-    }
-    
-    return complete
-  }
-
   readPayload(path: string): Payload {
     let s = [
       ReadFile,
@@ -376,41 +405,39 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
   }
   
   process(payload: Payload, start: number = 0, options?: PipelineOptions): Promise<Payload> {
-    this.running = true
-    if (options) {
-      this.options = options
-    }
-
-    this.triggerEventListener('start', payload, start)
-
-    return new Promise(async (resolve, reject) => {
-      let stageOutput = await this.triggerHook('filter', payload, -1)
-      // let stageOutput = payload
-        let index = start
-        while (!this.completed(undefined, stageOutput, resolve) && this.running) {
-          try {
-            this.triggerEventListener('beforeStage', stageOutput, index)
-            if (
-              this.stageConditions[index] === undefined || 
-              // @ts-ignore
-              (this.stageConditions[index] && this.stageConditions[index](stageOutput, this))
-            ) {
-              stageOutput = await this.stages[index](stageOutput, this, index)
-            }
-            this.triggerEventListener('afterStage', stageOutput, index)
-            this.completed(index, stageOutput, resolve)
-            index++
-          }
-          catch (err) {
-            reject(this)
-          }
+    return new Promise((resolve, reject) => {
+        this.running = true
+        this.status = 'running'
+        if (options) {
+          this.options = options
         }
-        this.completed(undefined, stageOutput, resolve)
+        this.triggerEventListener('start', payload, start)
+        this.triggerHook('filter', payload, -1).then((filteredLoad) => {
+          this.triggerEventListener('filtered', filteredLoad, start)
+          this.stageIndex = start
+          this.runCurrent(filteredLoad).then((processedLoad) => {
+            resolve(processedLoad)
+          }).catch((err) => {
+            console.log(err)
+          })
+        }).catch((err) => {
+          console.log(err)
+        })
       }
     )
   }
 
-  asStage(
+  asStage(): Stage {
+    return {
+      executor: this.asExecutor,
+      status: 'ready',
+      done: false,
+      running: false,
+      name: this.name
+    }    
+  }
+
+  asExecutor(
     payload: Payload,
     parent?: ParentPipelineInterface,
     index?: number
@@ -462,205 +489,4 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
       }
     })
   }
-
-  /**
-   * Better Stage
-   */
-  stagesBetter: Array<Stage> = []
-  stageIndex: number = 0
-  status: string = 'empty'
-
-  pipeBetter(stage: PipeableBetter): this {
-    this.triggerEventListener('pipe', {stage: stage})
-
-    if (isBetterPipes(stage)) {
-      stage.forEach((s) => {
-        this.pipeBetter(s)
-      })
-    }
-    
-    if (isBetterPipeablePipeline(stage)) {
-      stage = stage.asBetterStage()
-    }
-
-    if (isBetterStage(stage)) {
-      this.addBetterStage(stage)
-    }
-
-    if (isStage(stage)) {
-      this.addBetterStage({
-        executor:stage,
-        done: false,
-        running:false
-      })
-    }
-
-    return this
-  }
-
-  addBetterStage(stage: Stage): this {
-    this.stagesBetter.push(stage)
-    if (this.status === 'empty') {
-      this.status = 'staged'
-    }
-    if (!stage.status) {
-      stage.status = 'ready'
-    }
-    this.triggerEventListener('addStage', {stage: stage})
-    return this
-  }
-
-  runStage(payload: Payload, index?: number): Promise<Payload> {
-    return new Promise((resolve, reject) => {
-      if (index === undefined) {
-        index = this.stageIndex
-      }
-      
-      if (!isPromise(payload)) {
-        this.stagesBetter[index].status = 'running'
-        this.stagesBetter[index].running = true
-        this.triggerEventListener('beforeStage', payload, index)
-        let nextload = this.stagesBetter[index].executor(payload, this, index)
-        resolve(nextload)
-      }
-      else {
-        let i = index
-        payload.then((stageLoad) => {
-          let nextLoad = this.runStage(stageLoad, i)
-          resolve(nextLoad)
-        }).catch((err) => {
-          this.error(i, 'previous stage error', err)
-          reject(err)
-        })
-      }
-    })
-  }
-
-  runCurrent(payload: Payload): Promise<Payload> {
-    return new Promise((resolve, reject) => {
-      if (this.stagesBetter[this.stageIndex].status === 'ready') {
-        this.triggerEventListener('readyStage', payload, this.stageIndex)
-        let skip = false
-        if (this.stagesBetter[this.stageIndex].condition !== undefined) {
-          // @ts-ignore
-          skip != this.stagesBetter[this.stageIndex].condition(payload, this)
-        }
-        if (!skip) {
-          this.runStage(payload)
-            .then((nextLoad) => {
-              nextLoad = nextLoad
-              this.stagesBetter[this.stageIndex].status = 'done'
-              this.stagesBetter[this.stageIndex].running = false
-              this.stagesBetter[this.stageIndex].done = true
-              this.triggerEventListener('afterStage', nextLoad, this.stageIndex)
-              this.stageIndex++
-              if (this.stageIndex >= this.stagesBetter.length) {
-                this.running = false
-                this.status = 'done'
-                this.triggerEventListener('done', nextLoad, this.stageIndex)
-                this.triggerHook('output', nextLoad)
-                  .then((outputLoad) => {
-                    if (this.options?.output?.save) {
-                      let path
-                      if (typeof this.options.output.save === "string") {
-                        path = this.options.output.save
-                      }
-                      this.savePayload(outputLoad, path)
-                      this.triggerEventListener('saved', outputLoad, this.stageIndex)
-                    }
-                    this.status = 'completed'
-                    this.triggerEventListener('completed', outputLoad, this.stageIndex)
-                    resolve(outputLoad)
-                  })
-                  .catch((err) => {})
-              }
-              else {
-                resolve(this.runCurrent(nextLoad))
-              }
-            })
-            .catch((err) => {
-              this.error(this.stageIndex, 'stage error', err)
-              reject(err)                    
-            })
-        }
-        else {
-          this.stagesBetter[this.stageIndex].status = 'skiped'
-          this.stagesBetter[this.stageIndex].running = false
-          this.stagesBetter[this.stageIndex].done = true
-          this.triggerEventListener('stageSkiped', payload, this.stageIndex)
-          this.stageIndex++
-        }
-      }
-    })
-  }
-  
-  processBetter(payload: Payload, start: number = 0, options?: PipelineOptions): Promise<Payload> {
-    return new Promise((resolve, reject) => {
-        this.running = true
-        this.status = 'running'
-        if (options) {
-          this.options = options
-        }
-        this.triggerEventListener('start', payload, start)
-        this.triggerHook('filter', payload, -1).then((filteredLoad) => {
-          this.triggerEventListener('filtered', filteredLoad, start)
-          this.stageIndex = start
-          this.runCurrent(filteredLoad).then((processedLoad) => {
-            resolve(processedLoad)
-          }).catch((err) => {
-            console.log(err)
-          })
-        }).catch((err) => {
-          console.log(err)
-        })
-      }
-    )
-  }
-
-  asBetterStage(): Stage {
-    return {
-      executor: this.asExecutor,
-      status: 'ready',
-      done: false,
-      running: false,
-      name: this.name
-    }    
-  }
-
-  asExecutor(
-    payload: Payload,
-    parent?: ParentPipelineInterface,
-    index?: number
-  ) {
-    if (parent) {
-      this.parent = parent
-    }
-    if (index) {
-      this.parentIndex = index
-    }
-
-    return this.processBetter(payload)
-  }
-}
-
-export type PipeableBetter = Stage | PipeablePipelineInterface | StageExecutor
-
-export function isBetterPipeablePipeline(param: any): param is PipeablePipelineInterface {
-  return is(Object)(param) && is(Function)(param.asBetterStage)
-}
-
-export function isBetterPipes(param: any): param is Array<PipeableBetter> {
-  return isArrayOf(Object)(param) || isArrayOf(Function)(param)
-}
-
-export function isBetterPipe(param: any): param is PipeableBetter {
-  return is(Function)(param) || isBetterPipeablePipeline(param)
-}
-
-export function isBetterPipeable(param: any): param is PipeableBetter {
-  return param && (typeof param === "function" || (
-    typeof param === "object"
-    && param.stage
-    && typeof param.stage === "function"
-  ))
 }

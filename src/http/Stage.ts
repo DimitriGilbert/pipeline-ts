@@ -39,6 +39,6 @@ export async function download(
   ]
   let p = new Pipeline()
   // @ts-ignore
-  p.pipeBetter(stages)
+  p.pipe(stages)
   return p.asExecutor(payload, parent, index)
 }

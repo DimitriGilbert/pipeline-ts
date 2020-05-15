@@ -2,8 +2,12 @@ import { Payload } from "./Payload";
 import { ParentPipelineInterface, PipeableCondition } from "./Pipeline";
 import { is } from "ts-type-guards";
 
-export function isStage(param: any): param is StageBase {
+export function isStageExecutor(param: any): param is StageExecutor & StageBase {
   return is(Function)(param)
+}
+
+export function isStage(param: any): param is Stage {
+  return is(Object)(param) && param.hasOwnProperty('executor')
 }
 
 export type StageBase = (
