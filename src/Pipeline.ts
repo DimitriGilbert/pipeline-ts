@@ -164,8 +164,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
       ) {
         this.log(-1, {
           level: 'vv',
-          message: `No Hook ${name}`,
-          data: event
+          message: `No Hook ${name}`
         })
         resolve(payload)
       }
@@ -173,7 +172,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         this.log(-1, {
           level: 'vv',
           message: `Hook ${name}`,
-          data: event
+          data: this.options.hooks[name]
         })
         let hookPipeline = new Pipeline(
           this.options.hooks[name].pipeable,
@@ -188,8 +187,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         }).then((hookPayload) => {
           this.log(-1, {
             level: 'vv',
-            message: `Hook ${name} Complete`,
-            data: event
+            message: `Hook ${name} Complete`
           })
           // @ts-ignore
           resolve(hookPayload)
@@ -310,9 +308,42 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     })
   }
 
-  runCurrent(payload: Payload): Promise<Payload> {
+  completeStage(payload: Payload, status: string = 'done', eventName: string = 'afterStage') {
+    this.stages[this.stageIndex].status = status
+    this.stages[this.stageIndex].running = false
+    this.stages[this.stageIndex].done = true
+    this.triggerEventListener(eventName, payload, this.stageIndex)
+    this.stageIndex++
+  }
+
+  complete(payload: Payload, status: string = 'done', eventName: string = 'done') {
+    this.running = false
+    this.status = status
+    this.triggerEventListener(eventName, payload, this.stageIndex)
+  }
+
+  output(payload: Payload, status: string = 'completed', eventName: string = 'completed') {
     return new Promise((resolve, reject) => {
-      if (this.stages[this.stageIndex].status === 'ready') {
+      this.triggerHook('output', payload).then((outputLoad) => {
+        if (this.options?.output?.save) {
+          let path
+          if (typeof this.options.output.save === "string") {
+            path = this.options.output.save
+          }
+          this.savePayload(outputLoad, path)
+        }
+        this.status = status
+        this.triggerEventListener(eventName, outputLoad, this.stageIndex)
+        resolve(outputLoad)
+      }).catch((err) => {
+        this.error(this.stageIndex, 'output hook error', err)
+      })
+    })
+  }
+
+  stageLoop(payload: Payload): Promise<Payload> {
+    return new Promise((resolve, reject) => {
+      if (this.running && this.stages[this.stageIndex].status === 'ready') {
         this.triggerEventListener('readyStage', payload, this.stageIndex)
         let skip = false
         if (this.stages[this.stageIndex].condition !== undefined) {
@@ -322,34 +353,13 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         if (!skip) {
           this.runStage(payload)
             .then((nextLoad) => {
-              nextLoad = nextLoad
-              this.stages[this.stageIndex].status = 'done'
-              this.stages[this.stageIndex].running = false
-              this.stages[this.stageIndex].done = true
-              this.triggerEventListener('afterStage', nextLoad, this.stageIndex)
-              this.stageIndex++
+              this.completeStage(nextLoad)
               if (this.stageIndex >= this.stages.length) {
-                this.running = false
-                this.status = 'done'
-                this.triggerEventListener('done', nextLoad, this.stageIndex)
-                this.triggerHook('output', nextLoad)
-                  .then((outputLoad) => {
-                    if (this.options?.output?.save) {
-                      let path
-                      if (typeof this.options.output.save === "string") {
-                        path = this.options.output.save
-                      }
-                      this.savePayload(outputLoad, path)
-                      this.triggerEventListener('saved', outputLoad, this.stageIndex)
-                    }
-                    this.status = 'completed'
-                    this.triggerEventListener('completed', outputLoad, this.stageIndex)
-                    resolve(outputLoad)
-                  })
-                  .catch((err) => {})
+                this.complete(nextLoad)
+                resolve(this.output(nextLoad))
               }
               else {
-                resolve(this.runCurrent(nextLoad))
+                resolve(this.stageLoop(nextLoad))
               }
             })
             .catch((err) => {
@@ -358,11 +368,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
             })
         }
         else {
-          this.stages[this.stageIndex].status = 'skiped'
-          this.stages[this.stageIndex].running = false
-          this.stages[this.stageIndex].done = true
-          this.triggerEventListener('stageSkiped', payload, this.stageIndex)
-          this.stageIndex++
+          this.completeStage(payload, 'skiped', 'stageSkiped')
         }
       }
     })
@@ -456,7 +462,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         this.triggerHook('filter', payload, -1).then((filteredLoad) => {
           this.triggerEventListener('filtered', filteredLoad, start)
           this.stageIndex = start
-          this.runCurrent(filteredLoad).then((processedLoad) => {
+          this.stageLoop(filteredLoad).then((processedLoad) => {
             resolve(processedLoad)
           }).catch((err) => {
             console.log(err)
