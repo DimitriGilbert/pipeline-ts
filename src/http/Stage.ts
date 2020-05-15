@@ -10,6 +10,9 @@ export async function httpRequest(
   index?: number
 ) {
   return new Promise((resolve, reject) => {
+    if (!payload.request.method) {
+      payload.request.method = 'get'
+    }
     axios.request(payload.request).then((res) => {
       payload.response = res
       resolve(res)
@@ -34,7 +37,8 @@ export async function download(
     resp2data,
     WriteFile
   ]
+  let p = new Pipeline()
   // @ts-ignore
-  let p = new Pipeline(stages, payload.pipelineOptions)
-  return p.asStage(payload, parent, index)
+  p.pipeBetter(stages)
+  return p.asExecutor(payload, parent, index)
 }

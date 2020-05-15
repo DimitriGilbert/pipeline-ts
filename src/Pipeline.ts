@@ -1,7 +1,7 @@
 import { is, isArrayOf } from "ts-type-guards";
 import { PipelineOptions, PipelineEventListenerOptions } from "./Options";
 import { LogEntry } from "./Log";
-import { StageBase, isStage, Stage, isBetterStage } from "./Stage";
+import { StageBase, isStage, Stage, isBetterStage, StageExecutor } from "./Stage";
 import { Payload, isPromise, Payloadable } from "./Payload";
 import { PipelineEventListener, PipelineEventList, PipelineEventListenerData } from "./Event";
 import { WriteFile, ReadFile } from "./fs/Stage";
@@ -179,8 +179,10 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
   }
 
   triggerEventListener(name: string, payload?: Payload, index?: number): void {
-    if (name in PipelineEventList
-      && this.options.eventListeners
+    console.log(name)
+    if (
+      // name in PipelineEventList
+      this.options.eventListeners
       // meeeehhhh
       // @ts-ignore
       && this.options.eventListeners[name]
@@ -515,19 +517,79 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
       }
       
       if (!isPromise(payload)) {
-        this.stagesBetter[this.stageIndex].status = 'running'
+        this.stagesBetter[index].status = 'running'
         this.stagesBetter[index].running = true
         this.triggerEventListener('beforeStage', payload, index)
-        resolve(this.stagesBetter[index].executor(payload, this, index))
+        let nextload = this.stagesBetter[index].executor(payload, this, index)
+        resolve(nextload)
       }
       else {
         let i = index
         payload.then((stageLoad) => {
-          resolve(this.runStage(stageLoad, i))
+          let nextLoad = this.runStage(stageLoad, i)
+          resolve(nextLoad)
         }).catch((err) => {
           this.error(i, 'previous stage error', err)
           reject(err)
         })
+      }
+    })
+  }
+
+  runCurrent(payload: Payload): Promise<Payload> {
+    return new Promise((resolve, reject) => {
+      if (this.stagesBetter[this.stageIndex].status === 'ready') {
+        this.triggerEventListener('readyStage', payload, this.stageIndex)
+        let skip = false
+        if (this.stagesBetter[this.stageIndex].condition !== undefined) {
+          // @ts-ignore
+          skip != this.stagesBetter[this.stageIndex].condition(payload, this)
+        }
+        if (!skip) {
+          this.runStage(payload)
+            .then((nextLoad) => {
+              nextLoad = nextLoad
+              this.stagesBetter[this.stageIndex].status = 'done'
+              this.stagesBetter[this.stageIndex].running = false
+              this.stagesBetter[this.stageIndex].done = true
+              this.triggerEventListener('afterStage', nextLoad, this.stageIndex)
+              this.stageIndex++
+              if (this.stageIndex >= this.stagesBetter.length) {
+                this.running = false
+                this.status = 'done'
+                this.triggerEventListener('done', nextLoad, this.stageIndex)
+                this.triggerHook('output', nextLoad)
+                  .then((outputLoad) => {
+                    if (this.options?.output?.save) {
+                      let path
+                      if (typeof this.options.output.save === "string") {
+                        path = this.options.output.save
+                      }
+                      this.savePayload(outputLoad, path)
+                      this.triggerEventListener('saved', outputLoad, this.stageIndex)
+                    }
+                    this.status = 'completed'
+                    this.triggerEventListener('completed', outputLoad, this.stageIndex)
+                    resolve(outputLoad)
+                  })
+                  .catch((err) => {})
+              }
+              else {
+                resolve(this.runCurrent(nextLoad))
+              }
+            })
+            .catch((err) => {
+              this.error(this.stageIndex, 'stage error', err)
+              reject(err)                    
+            })
+        }
+        else {
+          this.stagesBetter[this.stageIndex].status = 'skiped'
+          this.stagesBetter[this.stageIndex].running = false
+          this.stagesBetter[this.stageIndex].done = true
+          this.triggerEventListener('stageSkiped', payload, this.stageIndex)
+          this.stageIndex++
+        }
       }
     })
   }
@@ -540,64 +602,17 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
           this.options = options
         }
         this.triggerEventListener('start', payload, start)
-
         this.triggerHook('filter', payload, -1).then((filteredLoad) => {
           this.triggerEventListener('filtered', filteredLoad, start)
           this.stageIndex = start
-          let stageLoad = filteredLoad
-          while (this.running) {
-            if (this.stagesBetter[this.stageIndex].status === 'ready') {
-              this.triggerEventListener('readyStage', stageLoad, this.stageIndex)
-              let skip = false
-              if (this.stagesBetter[this.stageIndex].condition !== undefined) {
-                // @ts-ignore
-                skip != this.stagesBetter[this.stageIndex].condition(stageLoad, this)
-              }
-              if (!skip) {
-                this.runStage(stageLoad)
-                  .then((nextLoad) => {
-                    stageLoad = nextLoad
-                    this.stagesBetter[this.stageIndex].status = 'done'
-                    this.stagesBetter[this.stageIndex].running = false
-                    this.stagesBetter[this.stageIndex].done = true
-                    this.triggerEventListener('afterStage', stageLoad, this.stageIndex)
-                    this.stageIndex++
-                    if (this.stageIndex >= this.stagesBetter.length) {
-                      this.running = false
-                      this.status = 'done'
-                      this.triggerEventListener('done', stageLoad, this.stageIndex)
-                      this.triggerHook('output', stageLoad)
-                        .then((outputLoad) => {
-                          if (this.options?.output?.save) {
-                            let path
-                            if (typeof this.options.output.save === "string") {
-                              path = this.options.output.save
-                            }
-                            this.savePayload(outputLoad, path)
-                            this.triggerEventListener('saved', outputLoad, this.stageIndex)
-                          }
-                          resolve(outputLoad)
-                          this.status = 'completed'
-                          this.triggerEventListener('completed', outputLoad, this.stageIndex)
-                        })
-                        .catch((err) => {})
-                    }
-                  })
-                  .catch((err) => {
-                    this.error(this.stageIndex, 'stage error', err)
-                    reject(err)                    
-                  })
-              }
-              else {
-                this.stagesBetter[this.stageIndex].status = 'skiped'
-                this.stagesBetter[this.stageIndex].running = false
-                this.stagesBetter[this.stageIndex].done = true
-                this.triggerEventListener('stageSkiped', payload, this.stageIndex)
-                this.stageIndex++
-              }
-            }
-          }
-        }).catch((err) => {})
+          this.runCurrent(filteredLoad).then((processedLoad) => {
+            resolve(processedLoad)
+          }).catch((err) => {
+            console.log(err)
+          })
+        }).catch((err) => {
+          console.log(err)
+        })
       }
     )
   }
@@ -628,7 +643,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
   }
 }
 
-export type PipeableBetter = Stage | PipeablePipelineInterface
+export type PipeableBetter = Stage | PipeablePipelineInterface | StageExecutor
 
 export function isBetterPipeablePipeline(param: any): param is PipeablePipelineInterface {
   return is(Object)(param) && is(Function)(param.asBetterStage)
