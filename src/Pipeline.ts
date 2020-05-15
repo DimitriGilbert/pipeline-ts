@@ -1,7 +1,7 @@
 import { is, isArrayOf } from "ts-type-guards";
 import { PipelineOptions, PipelineEventListenerOptions } from "./Options";
 import { LogEntry } from "./Log";
-import { StageBase, isStage, Stage, isBetterStage, StageExecutor, isStageExecutor } from "./Stage";
+import { isStage, Stage, StageExecutor, isStageExecutor } from "./Stage";
 import { Payload, isPromise, Payloadable } from "./Payload";
 import { PipelineEventListener, PipelineEventList, PipelineEventListenerData } from "./Event";
 import { WriteFile, ReadFile } from "./fs/Stage";
@@ -97,7 +97,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
   }
 
   addEventListener(name: string, event: PipelineEventListener): boolean {
-    if (name in PipelineEventList) {
+    // if (name in PipelineEventList) {
       if (!this.options.eventListeners) {
         this.options.eventListeners = <PipelineEventListenerOptions>{}
       }
@@ -111,39 +111,47 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         // @ts-ignore
         this.options.eventListeners[name] = [this.options.eventListeners[name]]
       }
+      this.log(-1, {
+        level: 'vv',
+        message: `Adding listeners to event ${name}`,
+        data: event
+      })
       // @ts-ignore
       this.options.eventListeners[name].push(event)
       return true
-    }
+    // }
     return false
   }
 
   removeEventListener(name: string, event: PipelineEventListener): boolean {
-    if (name in PipelineEventList) {
-      if (!this.options.eventListeners) {
-        return true
-      }
+    if (!this.options.eventListeners) {
+      return true
+    }
+    // @ts-ignore
+    if (!this.options.eventListeners[name]) {
+      return true
+    }
+    // @ts-ignore
+    if (!is(Array)(this.options.eventListeners[name])) {
       // @ts-ignore
-      if (!this.options.eventListeners[name]) {
-        return true
-      }
+      this.options.eventListeners[name] = [this.options.eventListeners[name]]
+    }
+    // @ts-ignore
+    let index = this.options.eventListeners[name].indexOf(event)
+    if(index !== -1) {
+      this.log(-1, {
+        level: 'vv',
+        message: `Removing listeners to event ${name}`,
+        data: event
+      })
       // @ts-ignore
-      if (!is(Array)(this.options.eventListeners[name])) {
+      this.options.eventListeners[name] = [].concat(
         // @ts-ignore
-        this.options.eventListeners[name] = [this.options.eventListeners[name]]
-      }
-      // @ts-ignore
-      let index = this.options.eventListeners[name].indexOf(event)
-      if(index !== -1) {
+        this.options.eventListeners[name].slice(0, index),
         // @ts-ignore
-        this.options.eventListeners[name] = [].concat(
-          // @ts-ignore
-          this.options.eventListeners[name].slice(0, index),
-          // @ts-ignore
-          this.options.eventListeners[name].slice(index+1)
-        )
-        return true
-      }
+        this.options.eventListeners[name].slice(index+1)
+      )
+      return true
     }
     return false
   }
@@ -154,9 +162,19 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         !this.options.hooks ||
         (this.options.hooks && !this.options.hooks[name])
       ) {
+        this.log(-1, {
+          level: 'vv',
+          message: `No Hook ${name}`,
+          data: event
+        })
         resolve(payload)
       }
       else {
+        this.log(-1, {
+          level: 'vv',
+          message: `Hook ${name}`,
+          data: event
+        })
         let hookPipeline = new Pipeline(
           this.options.hooks[name].pipeable,
           this.options.hooks[name].options
@@ -168,6 +186,11 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
           this.error(index?index:999999997, 'hook error', err)
           reject(err)
         }).then((hookPayload) => {
+          this.log(-1, {
+            level: 'vv',
+            message: `Hook ${name} Complete`,
+            data: event
+          })
           // @ts-ignore
           resolve(hookPayload)
         })
@@ -176,6 +199,11 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
   }
 
   triggerEventListener(name: string, payload?: Payload, index?: number): void {
+    this.log(index?index:-1, {
+      level: 'vvv',
+      message: `Event ${name}`,
+      data: payload
+    })
     if (
       // name in PipelineEventList
       this.options.eventListeners
@@ -192,6 +220,11 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
       }
       // @ts-ignore
       if (is(Array)(this.options.eventListeners[name])) {
+        this.log(index?index:-1, {
+          level: 'vv',
+          message: `Event ${name} has ${this.options.eventListeners[name].length} listeners`,
+          data: payload
+        })
         // @ts-ignore
         this.options.eventListeners[name].forEach(
           (evt: PipelineEventListener) => {
@@ -200,6 +233,11 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         )
       }
       else {
+        this.log(index?index:-1, {
+          level: 'vv',
+          message: `Event ${name} has 1 listener`,
+          data: payload
+        })
         // @ts-ignore
         this.options.eventListeners[name](this, d)
       }
@@ -336,7 +374,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
       this.logs.push(log)
     }
 
-    this.triggerEventListener('log', log, currentIndex)
+    // this.triggerEventListener('log', log, currentIndex)
     
     this.parent?.log(this.parentIndex?this.parentIndex:0, {
       level:log.level,
@@ -373,6 +411,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
       ReadFile,
       (payload: Payload, parent: ParentPipelineInterface) => {
         try {
+          this.triggerEventListener('readPayload', payload)
           // @ts-ignore
           return JSON.parse(payload.data)
         }
@@ -401,7 +440,9 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
       path: path
     }
 
-    WriteFile(d, this).catch((err) => {})
+    WriteFile(d, this).catch((err) => {}).then((data) => {
+      this.triggerEventListener('savedPayload', payload)
+    })
   }
   
   process(payload: Payload, start: number = 0, options?: PipelineOptions): Promise<Payload> {
@@ -428,6 +469,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
   }
 
   asStage(): Stage {
+    this.triggerEventListener('asStage')
     return {
       executor: this.asExecutor,
       status: 'ready',
@@ -442,6 +484,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     parent?: ParentPipelineInterface,
     index?: number
   ) {
+    this.triggerEventListener('asExecutor')
     if (parent) {
       this.parent = parent
     }
@@ -453,6 +496,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
   }
 
   clone() {
+    this.triggerEventListener('clone')
     return new (Object.getPrototypeOf(this).constructor)(
       this.stages, 
       this.options
@@ -464,6 +508,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     merger: (toMerge:Array<Payload>, parent: ParentPipelineInterface) => Payload
   ): Promise<Payload> {
     return new Promise((resolve, reject) => {
+      this.triggerEventListener('parrallel', payloads)
       let outputs:Array<Payload> = []
       let done: Array<boolean> = []
       let pipelines: Array<MinimalPipelineInterface> = []
@@ -479,11 +524,12 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         .then((newload: Payload) => {
           outputs[pipelineIndex] = newload
           done[pipelineIndex] = true
+          this.triggerEventListener('parrallelPartComplete', outputs[pipelineIndex], pipelineIndex)
           let complete = (done.indexOf(false) === -1)
           if (complete) {
             let out_ = merger(outputs, this)
             resolve(out_)
-            this.triggerEventListener('complete', out_)
+            this.triggerEventListener('parrallelComplete', out_)
           }
         })
       }
