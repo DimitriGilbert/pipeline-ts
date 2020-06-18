@@ -1,4 +1,4 @@
-import { Payload } from "./Payload";
+import { Payload, Payloadable } from "./Payload";
 import { ParentPipelineInterface, PipeableCondition } from "./Pipeline";
 import { is } from "ts-type-guards";
 
@@ -17,10 +17,15 @@ export type StageBase = (
 ) => Payload
 
 export type StageExecutor = (
-  payload: Payload,
+  payload: Payloadable,
   parent?: ParentPipelineInterface,
   index?: number
 ) => Payload
+
+export type StageFilter = {
+  in?: (payload: Payloadable) => Payloadable,
+  out?: (unfilteredPayload: Payloadable, nestPayload: Payloadable) => Payloadable
+}
 
 export type Stage = {
   executor: StageExecutor,
@@ -28,12 +33,31 @@ export type Stage = {
   done: boolean,
   running: boolean,
   name?: string,
-  condition?: PipeableCondition
+  condition?: PipeableCondition,
+  filter?: StageFilter,
   [key: string]: any
 }
 
-export function isBetterStage (param: any): param is Stage {
-  return is(Object)(param)
-    && param.executor !== undefined
-    && is(Function)(param.executor)
+export function MakeStage (
+  executor: StageExecutor,
+  name?: string,
+  condition?: PipeableCondition,
+  filter?: StageFilter
+): Stage {
+  let stg: Stage = {
+    executor: executor,
+    status: 'ready',
+    done: false,
+    running: false
+  }
+  if (name) {
+    stg.name = name
+  }
+  if (condition) {
+    stg.condition = condition
+  }
+  if (filter) {
+    stg.filter = filter
+  }
+  return stg
 }

@@ -4,10 +4,11 @@
   "description": "Rough and simple pipeline implementation in Typescript",
   "main": "build/index.js",
   "scripts": {
-    "test": "jest",
+    "test": "jest --silent=false",
     "coverage": "jest --coverage",
     "tsn": "ts-node",
     "tsc": "tsc",
+    "build": "jest --coverage && tsc",
     "plop": "ts-node plop.ts"
   },
   "author": "DimitriGilbert",

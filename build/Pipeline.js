@@ -230,7 +230,12 @@ class Pipeline extends PipelineProperties {
                 this.stages[index].status = 'running';
                 this.stages[index].running = true;
                 this.triggerEventListener('beforeStage', payload, index);
-                let nextload = this.stages[index].executor(payload, this, index);
+                let stagePayload = payload;
+                let stage = this.stages[index];
+                if (stage.filter && stage.filter.in) {
+                    stagePayload = stage.filter.in(payload);
+                }
+                let nextload = stage.executor(payload, this, index);
                 resolve(nextload);
             }
             else {
@@ -281,13 +286,16 @@ class Pipeline extends PipelineProperties {
             if (this.running && this.stages[this.stageIndex].status === 'ready') {
                 this.triggerEventListener('readyStage', payload, this.stageIndex);
                 let skip = false;
-                if (this.stages[this.stageIndex].condition !== undefined) {
-                    // @ts-ignore
-                    skip != this.stages[this.stageIndex].condition(payload, this);
+                let stg = this.stages[this.stageIndex];
+                if (stg.condition) {
+                    skip = !stg.condition(payload, this);
                 }
                 if (!skip) {
                     this.runStage(payload)
                         .then((nextLoad) => {
+                        if (stg.filter && stg.filter.out) {
+                            nextLoad = stg.filter.out(nextLoad, payload);
+                        }
                         this.completeStage(nextLoad);
                         if (this.stageIndex >= this.stages.length) {
                             this.complete(nextLoad);
@@ -397,15 +405,9 @@ class Pipeline extends PipelineProperties {
             });
         });
     }
-    asStage() {
+    asStage(condition, filter) {
         this.triggerEventListener('asStage');
-        return {
-            executor: this.asExecutor,
-            status: 'ready',
-            done: false,
-            running: false,
-            name: this.name
-        };
+        return Stage_1.MakeStage(this.asExecutor, this.name, condition, filter);
     }
     asExecutor(payload, parent, index) {
         this.triggerEventListener('asExecutor');

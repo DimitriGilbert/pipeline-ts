@@ -1,6 +1,6 @@
 import { PipelineOptions } from "./Options";
 import { LogEntry } from "./Log";
-import { Stage, StageExecutor } from "./Stage";
+import { Stage, StageExecutor, StageFilter } from "./Stage";
 import { Payload, Payloadable } from "./Payload";
 import { PipelineEventListener } from "./Event";
 export interface PipeablePipelineInterface {
@@ -65,7 +65,7 @@ export declare class Pipeline extends PipelineProperties implements MinimalPipel
     readPayload(path: string): Payload;
     savePayload(payload: Payloadable, path?: string): void;
     process(payload: Payload, start?: number, options?: PipelineOptions): Promise<Payload>;
-    asStage(): Stage;
+    asStage(condition?: PipeableCondition, filter?: StageFilter): Stage;
     asExecutor(payload: Payload, parent?: ParentPipelineInterface, index?: number): Promise<Payload>;
     clone(): any;
     parallel(payloads: Array<Payload>, merger: (toMerge: Array<Payload>, parent: ParentPipelineInterface) => Payload): Promise<Payload>;

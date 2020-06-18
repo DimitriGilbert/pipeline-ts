@@ -1,7 +1,7 @@
 import { is, isArrayOf } from "ts-type-guards";
 import { PipelineOptions, PipelineEventListenerOptions } from "./Options";
 import { LogEntry } from "./Log";
-import { isStage, Stage, StageExecutor, isStageExecutor } from "./Stage";
+import { isStage, Stage, StageExecutor, isStageExecutor, MakeStage, StageFilter } from "./Stage";
 import { Payload, isPromise, Payloadable } from "./Payload";
 import { PipelineEventListener, PipelineEventList, PipelineEventListenerData } from "./Event";
 import { WriteFile, ReadFile } from "./fs/Stage";
@@ -292,7 +292,12 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         this.stages[index].status = 'running'
         this.stages[index].running = true
         this.triggerEventListener('beforeStage', payload, index)
-        let nextload = this.stages[index].executor(payload, this, index)
+        let stagePayload = payload
+        let stage = this.stages[index]
+        if (stage.filter && stage.filter.in) {
+          stagePayload = stage.filter.in(payload)
+        }
+        let nextload = stage.executor(payload, this, index)
         resolve(nextload)
       }
       else {
@@ -346,13 +351,16 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
       if (this.running && this.stages[this.stageIndex].status === 'ready') {
         this.triggerEventListener('readyStage', payload, this.stageIndex)
         let skip = false
-        if (this.stages[this.stageIndex].condition !== undefined) {
-          // @ts-ignore
-          skip != this.stages[this.stageIndex].condition(payload, this)
+        let stg = this.stages[this.stageIndex]
+        if (stg.condition) {
+          skip = !stg.condition(payload, this)
         }
         if (!skip) {
           this.runStage(payload)
             .then((nextLoad) => {
+              if (stg.filter && stg.filter.out) {
+                nextLoad = stg.filter.out(nextLoad, payload)
+              }
               this.completeStage(nextLoad)
               if (this.stageIndex >= this.stages.length) {
                 this.complete(nextLoad)
@@ -474,15 +482,17 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     )
   }
 
-  asStage(): Stage {
+  asStage(
+    condition?: PipeableCondition,
+    filter?: StageFilter
+  ): Stage {
     this.triggerEventListener('asStage')
-    return {
-      executor: this.asExecutor,
-      status: 'ready',
-      done: false,
-      running: false,
-      name: this.name
-    }    
+    return MakeStage(
+      this.asExecutor,
+      this.name,
+      condition,
+      filter
+    )
   }
 
   asExecutor(

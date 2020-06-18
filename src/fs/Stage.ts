@@ -2,7 +2,7 @@ import * as fs from "fs";
 // import * as readdirRecursive from "fs-readdir-recursive";
 
 import { ParentPipelineInterface } from "../Pipeline";
-import { readPayload, FsPayload, writePayload, writeOperationPayload, mkdirPayload } from "./Payload";
+import { readPayload, FsPayload, writePayload, writeOperationPayload, mkdirPayload, copyPayload } from "./Payload";
 
 export async function PathExists(
   payload: FsPayload,
@@ -78,6 +78,46 @@ export function WriteFile(
       }
       else {
         resolve(Object.assign(payload, {data: output}))
+      }
+    })
+  });
+}
+
+export function Copy(
+  payload: copyPayload,
+  parent?: ParentPipelineInterface,
+  index?: number
+) {
+  return new Promise((resolve, reject) => {
+    fs.copyFile(payload.path, payload.to, (err) => {
+      if (err) {
+        parent?.error(index, 'fs copy error', payload, err)
+        reject(err)
+      }
+      else {
+        resolve(payload)
+      }
+    })
+  });
+}
+
+export function BakFile (
+  payload: copyPayload,
+  parent?: ParentPipelineInterface,
+  index?: number
+) {
+  return new Promise((resolve, reject) => {
+    let bak = payload.bak
+    if (!bak || bak === true) {
+      bak = ".bak"
+    }
+    fs.copyFile(payload.path, payload.path+bak, (err) => {
+      if (err) {
+        parent?.error(index, 'fs Bak error', payload, err)
+        reject(err)
+      }
+      else {
+        resolve(payload)
       }
     })
   });

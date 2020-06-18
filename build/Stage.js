@@ -9,9 +9,22 @@ function isStage(param) {
     return ts_type_guards_1.is(Object)(param) && param.hasOwnProperty('executor');
 }
 exports.isStage = isStage;
-function isBetterStage(param) {
-    return ts_type_guards_1.is(Object)(param)
-        && param.executor !== undefined
-        && ts_type_guards_1.is(Function)(param.executor);
+function MakeStage(executor, name, condition, filter) {
+    let stg = {
+        executor: executor,
+        status: 'ready',
+        done: false,
+        running: false
+    };
+    if (name) {
+        stg.name = name;
+    }
+    if (condition) {
+        stg.condition = condition;
+    }
+    if (filter) {
+        stg.filter = filter;
+    }
+    return stg;
 }
-exports.isBetterStage = isBetterStage;
+exports.MakeStage = MakeStage;

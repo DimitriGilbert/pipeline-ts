@@ -13,6 +13,12 @@ npm i DimitriGilbert/pipeline-ts [--save]
 
 ## Usage ##
 
+Everything that takes a payload as parameter is called an executor and can be piped in a pipeline,
+you can also pipe a pipeline instead of an executor,
+hell, you can even pipe arrays of executors, or pipelines, or both !
+What if you need more controle over your stage add a execution condition or filter the payload ?
+you can do that using the stage object !
+
 ### Typescript ###
 
 #### Basic ####

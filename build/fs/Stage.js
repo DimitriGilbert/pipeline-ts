@@ -85,6 +85,38 @@ function WriteFile(payload, parent, index) {
     });
 }
 exports.WriteFile = WriteFile;
+function Copy(payload, parent, index) {
+    return new Promise((resolve, reject) => {
+        fs.copyFile(payload.path, payload.to, (err) => {
+            if (err) {
+                parent === null || parent === void 0 ? void 0 : parent.error(index, 'fs copy error', payload, err);
+                reject(err);
+            }
+            else {
+                resolve(payload);
+            }
+        });
+    });
+}
+exports.Copy = Copy;
+function BakFile(payload, parent, index) {
+    return new Promise((resolve, reject) => {
+        let bak = payload.bak;
+        if (!bak || bak === true) {
+            bak = ".bak";
+        }
+        fs.copyFile(payload.path, payload.path + bak, (err) => {
+            if (err) {
+                parent === null || parent === void 0 ? void 0 : parent.error(index, 'fs Bak error', payload, err);
+                reject(err);
+            }
+            else {
+                resolve(payload);
+            }
+        });
+    });
+}
+exports.BakFile = BakFile;
 function MkDir(payload, parent, index) {
     return new Promise((resolve, reject) => {
         let r = true;
