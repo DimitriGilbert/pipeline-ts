@@ -242,12 +242,15 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     }
   }
 
-  pipe(stage: Pipeable): this {
+  pipe(stage: Pipeable, at?: number): this {
     this.triggerEventListener('pipe', {stage: stage})
 
     if (isPipes(stage)) {
       stage.forEach((s) => {
-        this.pipe(s)
+        this.pipe(s, at)
+        if (at !== undefined) {
+          at++
+        }
       })
     }
     
@@ -256,7 +259,7 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     }
 
     if (isStage(stage)) {
-      this.addStage(stage)
+      this.addStage(stage, at)
     }
 
     if (isStageExecutor(stage)) {
@@ -264,14 +267,22 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         executor:stage,
         done: false,
         running:false
-      })
+      }, at)
     }
 
     return this
   }
 
-  addStage(stage: Stage): this {
-    this.stages.push(stage)
+  addStage(stage: Stage, at?: number): this {
+    if (at === undefined) {
+      this.stages.push(stage)
+    }
+    else {
+      let stages = this.stages
+      this.stages = stages.slice(0, at)
+      this.stages.push(stage)
+      this.stages.concat(stages.slice(at))
+    }
     if (this.status === 'empty') {
       this.status = 'staged'
     }

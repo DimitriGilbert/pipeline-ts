@@ -188,30 +188,41 @@ class Pipeline extends PipelineProperties {
             }
         }
     }
-    pipe(stage) {
+    pipe(stage, at) {
         this.triggerEventListener('pipe', { stage: stage });
         if (isPipes(stage)) {
             stage.forEach((s) => {
-                this.pipe(s);
+                this.pipe(s, at);
+                if (at !== undefined) {
+                    at++;
+                }
             });
         }
         if (isPipeablePipeline(stage)) {
             stage = stage.asStage();
         }
         if (Stage_1.isStage(stage)) {
-            this.addStage(stage);
+            this.addStage(stage, at);
         }
         if (Stage_1.isStageExecutor(stage)) {
             this.addStage({
                 executor: stage,
                 done: false,
                 running: false
-            });
+            }, at);
         }
         return this;
     }
-    addStage(stage) {
-        this.stages.push(stage);
+    addStage(stage, at) {
+        if (at === undefined) {
+            this.stages.push(stage);
+        }
+        else {
+            let stages = this.stages;
+            this.stages = stages.slice(0, at);
+            this.stages.push(stage);
+            this.stages.concat(stages.slice(at));
+        }
         if (this.status === 'empty') {
             this.status = 'staged';
         }
