@@ -51,7 +51,7 @@ export function isContainerInstanciableEntry (param: any): param is ContainerIns
 
 export function isContainer (param: any): param is Container {
   return param
-    && param.hasOwnProperty('entries')
+    // && param.hasOwnProperty('entries')
     && typeof param.has === "function"
     && typeof param.get === "function"
     && typeof param.set === "function"
@@ -92,7 +92,6 @@ export class Container {
           if (ret && check.indexOf("instantiable") !== -1) {
             ret = isContainerInstanciableEntry(this.entries[entryName])
           }
-          console.log(name, ret)
         }
         return ret
       }

@@ -24,7 +24,7 @@ function isContainerInstanciableEntry(param) {
 exports.isContainerInstanciableEntry = isContainerInstanciableEntry;
 function isContainer(param) {
     return param
-        && param.hasOwnProperty('entries')
+        // && param.hasOwnProperty('entries')
         && typeof param.has === "function"
         && typeof param.get === "function"
         && typeof param.set === "function";
@@ -63,7 +63,6 @@ class Container {
                     if (ret && check.indexOf("instantiable") !== -1) {
                         ret = isContainerInstanciableEntry(this.entries[entryName]);
                     }
-                    console.log(name, ret);
                 }
                 return ret;
             }

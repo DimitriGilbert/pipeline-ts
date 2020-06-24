@@ -42,7 +42,7 @@ class Command {
     }
     parseReservedOptions(argName, arg) {
         switch (argName) {
-            case "pipilineStages":
+            case "pipelineStages":
                 if (typeof arg === "string") {
                     this.parseStages(arg);
                 }

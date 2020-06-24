@@ -46,7 +46,7 @@ export class Command {
 
   parseReservedOptions(argName: string, arg: string | boolean | number): this {
     switch (argName) {
-      case "pipilineStages":
+      case "pipelineStages":
         if (typeof arg === "string") {
           this.parseStages(arg)
         }
