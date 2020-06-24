@@ -309,16 +309,17 @@ class Pipeline extends PipelineProperties {
                 if (!skip) {
                     this.runStage(payload)
                         .then((nextLoad) => {
+                        let completeLoad = nextLoad;
                         if (stg.filter && stg.filter.out) {
-                            nextLoad = stg.filter.out(nextLoad, payload);
+                            completeLoad = stg.filter.out(nextLoad, payload);
                         }
-                        this.completeStage(nextLoad);
+                        this.completeStage(completeLoad);
                         if (this.stageIndex >= this.stages.length) {
-                            this.complete(nextLoad);
-                            resolve(this.output(nextLoad));
+                            this.complete(completeLoad);
+                            resolve(this.output(completeLoad));
                         }
                         else {
-                            resolve(this.stageLoop(nextLoad));
+                            resolve(this.stageLoop(completeLoad));
                         }
                     })
                         .catch((err) => {
