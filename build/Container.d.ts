@@ -9,7 +9,7 @@ export declare type ContainerBaseEntry = {
     container?: Container;
 };
 export declare type ContainerPipeableEntry = {
-    pipeable: Pipeable;
+    pipeable: (new () => Pipeable) | Pipeable;
 } & ContainerBaseEntry;
 export declare type ContainerContainerEntry = {
     container: Container;
@@ -26,11 +26,16 @@ export declare function isContainerContainerEntry(param: any): param is Containe
 export declare function isContainerEntry(param: any): param is ContainerEntry;
 export declare function isContainerInstanciableEntry(param: any): param is ContainerInstanciableEntry;
 export declare function isContainer(param: any): param is Container;
+export declare type ContainerSetOptions = {
+    expects?: any;
+    provides?: any;
+    factory?: () => Pipeable;
+};
 export declare class Container {
     entries?: ContainerEntries;
     constructor(entries?: ContainerEntries);
     has(name: string, check?: string | Array<string>): boolean;
-    set(name: string, content: Pipeable | Container, expects?: any, provides?: any): this;
+    set(name: string, content: Pipeable | Container, options?: ContainerSetOptions): this;
     get(name: string, check?: string | Array<string>): ContainerEntry;
     getInstance(name: string): Pipeable;
 }

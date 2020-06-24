@@ -69,7 +69,7 @@ class Container {
         }
         return false;
     }
-    set(name, content, expects, provides) {
+    set(name, content, options) {
         let fqn = name.split(".");
         if (fqn.length >= 1) {
             if (!this.entries) {
@@ -81,7 +81,7 @@ class Container {
                     let entry = this.entries[entryName];
                     if (isContainerContainerEntry(entry)) {
                         try {
-                            return this.set(entryName, entry.container.set(fqn.slice(1).join("."), content, expects, provides));
+                            return this.set(entryName, entry.container.set(fqn.slice(1).join("."), content, options));
                         }
                         catch (err) {
                             throw new Error(entryName + "." + err.message);
@@ -99,11 +99,16 @@ class Container {
             else if (isContainer(content)) {
                 nEntry.container = content;
             }
-            if (expects) {
-                nEntry.expects = expects;
-            }
-            if (provides) {
-                nEntry.provides = provides;
+            if (options) {
+                if (options.expects) {
+                    nEntry.expects = options.expects;
+                }
+                if (options.provides) {
+                    nEntry.provides = options.provides;
+                }
+                if (options.factory) {
+                    nEntry.factory = options.factory;
+                }
             }
             if (isContainerEntry(nEntry)) {
                 this.entries[entryName] = nEntry;

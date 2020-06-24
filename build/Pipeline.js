@@ -251,7 +251,7 @@ class Pipeline extends PipelineProperties {
                 if (stage.filter && stage.filter.in) {
                     stagePayload = stage.filter.in(payload);
                 }
-                let nextload = stage.executor(payload, this, index);
+                let nextload = stage.executor(stagePayload, this, index);
                 resolve(nextload);
             }
             else {
