@@ -55,7 +55,7 @@ export interface MinimalPipelineInterface extends ParentPipelineInterface, Pipea
   running?: boolean;
   interupted?: boolean;
   errors?: Array<any>;
-  pipe(stage: Pipeable): this
+  pipe(stage: Pipeable, at?: number): this
   process(payload:Payload, start?: number, options?: PipelineOptions): Payload
 }
 
