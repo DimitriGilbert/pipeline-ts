@@ -1,5 +1,5 @@
 import minimist from "minimist";
-import { Container } from ".";
+import { Container, hasEvent } from ".";
 import { Payloadable, isPromise } from ".";
 import { Pipeable, MinimalPipelineInterface, isMinimalPipeline, Pipeline } from ".";
 
@@ -13,7 +13,7 @@ export class Command {
   args: Payloadable
   payload: Payloadable
   stages: Array<Pipeable> = []
-  pipeline?: MinimalPipelineInterface
+  pipeline?: MinimalPipelineInterface | Pipeline
 
   constructor (container: Container, args?: Array<string>) {
     this.container = container
@@ -82,6 +82,14 @@ export class Command {
     return new Promise((resolve, reject) => {
       if (!this.pipeline) {
         this.pipeline = new Pipeline()
+      }
+      if (hasEvent(this.pipeline)) {
+        this.pipeline.addEventListener('error', (ppl, data) => {
+          console.log(ppl, data)
+        })
+        this.pipeline.addEventListener('afterStage', (ppl, data) => {
+          console.log(`done ${ppl.stageIndex+1}/${ppl.stages.length}`)
+        })
       }
       this.stages.forEach((stage: Pipeable) => {
         this.pipeline?.pipe(stage)

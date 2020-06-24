@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Pipeline = exports.PipelineProperties = exports.isPipeable = exports.isPipe = exports.isPipes = exports.isPipeablePipeline = exports.isMinimalPipeline = void 0;
+exports.Pipeline = exports.PipelineProperties = exports.hasEvent = exports.isPipeable = exports.isPipe = exports.isPipes = exports.isPipeablePipeline = exports.isMinimalPipeline = void 0;
 const ts_type_guards_1 = require("ts-type-guards");
 const _1 = require(".");
 const _2 = require(".");
@@ -27,6 +27,13 @@ function isPipeable(param) {
         && typeof param.stage === "function"));
 }
 exports.isPipeable = isPipeable;
+function hasEvent(param) {
+    return param
+        && typeof param.addEventListener === "function"
+        && typeof param.removeEventListener === "function"
+        && typeof param.triggerEventListener === "function";
+}
+exports.hasEvent = hasEvent;
 class PipelineProperties {
     constructor() {
         this.stages = [];

@@ -1,13 +1,13 @@
 import { Container } from ".";
 import { Payloadable } from ".";
-import { Pipeable, MinimalPipelineInterface } from ".";
+import { Pipeable, MinimalPipelineInterface, Pipeline } from ".";
 export declare const ReservedOptions: string[];
 export declare class Command {
     container: Container;
     args: Payloadable;
     payload: Payloadable;
     stages: Array<Pipeable>;
-    pipeline?: MinimalPipelineInterface;
+    pipeline?: MinimalPipelineInterface | Pipeline;
     constructor(container: Container, args?: Array<string>);
     parseArgs(args: Array<string>): this;
     parseReservedOptions(argName: string, arg: string | boolean | number): this;

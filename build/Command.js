@@ -7,6 +7,7 @@ exports.Command = exports.ReservedOptions = void 0;
 const minimist_1 = __importDefault(require("minimist"));
 const _1 = require(".");
 const _2 = require(".");
+const _3 = require(".");
 exports.ReservedOptions = [
     "pipeline",
     "pipelineStages"
@@ -67,7 +68,7 @@ class Command {
     }
     parsePipeline(pipelineStr) {
         let p = this.container.getInstance(pipelineStr);
-        if (_2.isMinimalPipeline(p)) {
+        if (_3.isMinimalPipeline(p)) {
             this.pipeline = p;
         }
         return this;
@@ -75,14 +76,22 @@ class Command {
     process() {
         return new Promise((resolve, reject) => {
             if (!this.pipeline) {
-                this.pipeline = new _2.Pipeline();
+                this.pipeline = new _3.Pipeline();
+            }
+            if (_1.hasEvent(this.pipeline)) {
+                this.pipeline.addEventListener('error', (ppl, data) => {
+                    console.log(ppl, data);
+                });
+                this.pipeline.addEventListener('afterStage', (ppl, data) => {
+                    console.log(`done ${ppl.stageIndex + 1}/${ppl.stages.length}`);
+                });
             }
             this.stages.forEach((stage) => {
                 var _a;
                 (_a = this.pipeline) === null || _a === void 0 ? void 0 : _a.pipe(stage);
             });
             let result = this.pipeline.process(this.payload);
-            if (_1.isPromise(result)) {
+            if (_2.isPromise(result)) {
                 result.then((res) => {
                     resolve(res);
                 }).catch((err) => {

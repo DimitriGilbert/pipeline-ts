@@ -31,6 +31,12 @@ export interface MinimalPipelineInterface extends ParentPipelineInterface, Pipea
     pipe(stage: Pipeable, at?: number): this;
     process(payload: Payload, start?: number, options?: PipelineOptions): Payload;
 }
+export interface PipelineHasEvent {
+    addEventListener: (name: string, event: PipelineEventListener) => boolean;
+    removeEventListener: (name: string, event: PipelineEventListener) => boolean;
+    triggerEventListener: (name: string, payload: Payload, index?: number) => Promise<Payload>;
+}
+export declare function hasEvent(param: any): param is PipelineHasEvent;
 export declare class PipelineProperties {
     stages: Array<Stage>;
     stageIndex: number;
