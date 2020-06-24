@@ -1,10 +1,13 @@
-import {Pipeline, MakeStage} from "../src";
+import {Pipeline, MakeStage, isMinimalPipeline, isPipe, isStage, isStageExecutor} from "../src";
 import { basic, promised, long } from "./stage";
 
 describe('Pipeline', () => {
   it('creates', () => {
     let p = new Pipeline()
     expect(p.running).toBe(false)
+    expect(isMinimalPipeline(p)).toBe(true)
+    expect(isPipe(p)).toBe(true)
+    expect(p.name).toBeDefined()
   }),
   it('pipes', () => {
     let p = new Pipeline()
@@ -128,5 +131,40 @@ describe('Pipeline', () => {
     p.process({}).then((payload) => {
       expect(p.running).toBe(false)
     })
+  }),
+  it('has event listeners', () => {
+    let p = new Pipeline()
+    p.addEventListener('addStage', (pipeline, data) => {
+      expect(p).toEqual(pipeline)
+      expect(data.payload).toBeDefined()
+      expect(data.payload).toHaveProperty("stage")
+    })
+    p.pipe(basic)
+    p.removeEventListener('addStage', (pipeline, data) => {
+      expect(p).toEqual(pipeline)
+      expect(data.payload).toBeDefined()
+      expect(data.payload).toHaveProperty("stage")
+    })
+    expect(p.options.eventListeners).toBeDefined()
+    expect(p.options.eventListeners).toHaveProperty("addStage")
+  }),
+  it('asStage', () => {
+    let p = new Pipeline()
+    p.pipe(basic)
+    let stg = p.asStage()
+    expect(stg).toBeDefined()
+    expect(isStage(stg)).toBe(true)
+    let stgx = p.asExecutor
+    expect(stgx).toBeDefined()
+    expect(isStageExecutor(stgx)).toBe(true)
+    p.asExecutor({})
+    expect(p.running).toBe(true)
+  }),
+  it('clones', () => {
+    let p = new Pipeline()
+    p.pipe([basic, long, promised])
+    let p2 = p.clone()
+    expect(p2).toBeDefined()
+    expect(p2.stages).toEqual(p.stages)
   })
 })

@@ -1,7 +1,7 @@
-import { Payload } from "./Payload";
+import { Payloadable } from "./Payload";
 import { Pipeline } from "./Pipeline";
 export declare type PipelineEventListenerData = {
-    payload?: Payload;
+    payload?: Payloadable;
     evtName?: string;
     index?: number;
 };
