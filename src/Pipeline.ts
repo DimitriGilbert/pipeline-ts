@@ -503,8 +503,17 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
     filter?: StageFilter
   ): Stage {
     this.triggerEventListener('asStage')
-    return MakeStage(
-      this.asExecutor,
+    return MakeStage((
+        payload: Payload,
+        parent?: ParentPipelineInterface,
+        index?: number
+      ) => {
+        return this.asExecutor(
+          payload,
+          parent,
+          index
+        )
+      },
       this.name,
       condition,
       filter

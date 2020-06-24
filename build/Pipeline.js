@@ -424,7 +424,9 @@ class Pipeline extends PipelineProperties {
     }
     asStage(condition, filter) {
         this.triggerEventListener('asStage');
-        return _1.MakeStage(this.asExecutor, this.name, condition, filter);
+        return _1.MakeStage((payload, parent, index) => {
+            return this.asExecutor(payload, parent, index);
+        }, this.name, condition, filter);
     }
     asExecutor(payload, parent, index) {
         this.triggerEventListener('asExecutor');
