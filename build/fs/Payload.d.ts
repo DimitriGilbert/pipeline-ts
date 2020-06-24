@@ -1,8 +1,8 @@
 /// <reference types="node" />
-import { Payload } from "../Payload";
+import { Payloadable } from "..";
 export declare type FsPayload = {
     path: string;
-} & Payload;
+} & Payloadable;
 export declare type readPayload = {
     asBuffer?: boolean;
     sanitize?: (data: string | Buffer) => string | Buffer;

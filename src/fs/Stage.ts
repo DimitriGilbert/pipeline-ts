@@ -1,7 +1,7 @@
 import * as fs from "fs";
 // import * as readdirRecursive from "fs-readdir-recursive";
 
-import { ParentPipelineInterface } from "../Pipeline";
+import { ParentPipelineInterface } from "../";
 import { readPayload, FsPayload, writePayload, writeOperationPayload, mkdirPayload, copyPayload } from "./Payload";
 
 export async function PathExists(

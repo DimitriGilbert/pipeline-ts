@@ -1,5 +1,5 @@
-import { Payload, Payloadable } from "./Payload";
-import { ParentPipelineInterface, PipeableCondition } from "./Pipeline";
+import { Payload, Payloadable } from ".";
+import { ParentPipelineInterface, PipeableCondition } from ".";
 import { is } from "ts-type-guards";
 
 export function isStageExecutor(param: any): param is StageExecutor & StageBase {

@@ -4,5 +4,7 @@ export * from "./Options";
 export * from "./Payload";
 export * from "./Pipeline";
 export * from "./Stage";
+export * from "./Command";
+export * from './Container';
 export * as Fs from './fs';
 export * as Http from './http';

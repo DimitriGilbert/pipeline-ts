@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isPayload = exports.isArray = exports.isPromise = void 0;
 const ts_type_guards_1 = require("ts-type-guards");
 function isPromise(param) {
     return ts_type_guards_1.is(Promise)(param);

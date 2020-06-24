@@ -12,8 +12,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.download = exports.httpRequest = void 0;
 const axios_1 = __importDefault(require("axios"));
-const Pipeline_1 = require("../Pipeline");
+const __1 = require("../");
 const Stage_1 = require("../fs/Stage");
 function httpRequest(payload, parent, index) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -44,7 +45,7 @@ function download(payload, parent, index) {
             resp2data,
             Stage_1.WriteFile
         ];
-        let p = new Pipeline_1.Pipeline();
+        let p = new __1.Pipeline();
         // @ts-ignore
         p.pipe(stages);
         return p.asExecutor(payload, parent, index);

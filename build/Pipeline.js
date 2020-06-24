@@ -1,9 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Pipeline = exports.PipelineProperties = exports.isPipeable = exports.isPipe = exports.isPipes = exports.isPipeablePipeline = exports.isMinimalPipeline = void 0;
 const ts_type_guards_1 = require("ts-type-guards");
-const Stage_1 = require("./Stage");
-const Payload_1 = require("./Payload");
-const Stage_2 = require("./fs/Stage");
+const _1 = require(".");
+const _2 = require(".");
+const Stage_1 = require("./fs/Stage");
+function isMinimalPipeline(param) {
+    return ts_type_guards_1.is(Object)(param) && ts_type_guards_1.is(Function)(param.pipe) && ts_type_guards_1.is(Function)(param.process);
+}
+exports.isMinimalPipeline = isMinimalPipeline;
 function isPipeablePipeline(param) {
     return ts_type_guards_1.is(Object)(param) && ts_type_guards_1.is(Function)(param.asStage);
 }
@@ -201,10 +206,10 @@ class Pipeline extends PipelineProperties {
         if (isPipeablePipeline(stage)) {
             stage = stage.asStage();
         }
-        if (Stage_1.isStage(stage)) {
+        if (_1.isStage(stage)) {
             this.addStage(stage, at);
         }
-        if (Stage_1.isStageExecutor(stage)) {
+        if (_1.isStageExecutor(stage)) {
             this.addStage({
                 executor: stage,
                 done: false,
@@ -237,7 +242,7 @@ class Pipeline extends PipelineProperties {
             if (index === undefined) {
                 index = this.stageIndex;
             }
-            if (!Payload_1.isPromise(payload)) {
+            if (!_2.isPromise(payload)) {
                 this.stages[index].status = 'running';
                 this.stages[index].running = true;
                 this.triggerEventListener('beforeStage', payload, index);
@@ -362,7 +367,7 @@ class Pipeline extends PipelineProperties {
     }
     readPayload(path) {
         let s = [
-            Stage_2.ReadFile,
+            Stage_1.ReadFile,
             (payload, parent) => {
                 try {
                     this.triggerEventListener('readPayload', payload);
@@ -391,7 +396,7 @@ class Pipeline extends PipelineProperties {
             data: JSON.stringify(payload, null, 2),
             path: path
         };
-        Stage_2.WriteFile(d, this).catch((err) => { }).then((data) => {
+        Stage_1.WriteFile(d, this).catch((err) => { }).then((data) => {
             this.triggerEventListener('savedPayload', payload);
         });
     }
@@ -418,7 +423,7 @@ class Pipeline extends PipelineProperties {
     }
     asStage(condition, filter) {
         this.triggerEventListener('asStage');
-        return Stage_1.MakeStage(this.asExecutor, this.name, condition, filter);
+        return _1.MakeStage(this.asExecutor, this.name, condition, filter);
     }
     asExecutor(payload, parent, index) {
         this.triggerEventListener('asExecutor');

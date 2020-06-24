@@ -1,8 +1,8 @@
-import { Payload } from "../Payload"
+import { Payloadable } from ".."
 
 export type FsPayload = {
   path: string
-} & Payload
+} & Payloadable
 
 export type readPayload = {
   asBuffer?: boolean

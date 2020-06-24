@@ -1,6 +1,6 @@
 import axios from "axios";
 import { RequestPayload, DownloadPayload } from "./Payload";
-import { ParentPipelineInterface, Pipeline } from "../Pipeline";
+import { ParentPipelineInterface, Pipeline } from "../";
 import { writePayload } from "../fs/Payload";
 import { WriteFile } from "../fs/Stage";
 

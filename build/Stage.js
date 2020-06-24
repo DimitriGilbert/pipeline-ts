@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.MakeStage = exports.isStage = exports.isStageExecutor = void 0;
 const ts_type_guards_1 = require("ts-type-guards");
 function isStageExecutor(param) {
     return ts_type_guards_1.is(Function)(param);

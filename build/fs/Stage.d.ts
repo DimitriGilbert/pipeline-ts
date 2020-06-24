@@ -1,4 +1,4 @@
-import { ParentPipelineInterface } from "../Pipeline";
+import { ParentPipelineInterface } from "../";
 import { readPayload, FsPayload, writePayload, mkdirPayload, copyPayload } from "./Payload";
 export declare function PathExists(payload: FsPayload, parent?: ParentPipelineInterface, index?: number): Promise<unknown>;
 export declare function ReadFile(payload: readPayload, parent?: ParentPipelineInterface, index?: number): Promise<unknown>;

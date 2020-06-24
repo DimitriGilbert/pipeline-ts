@@ -1,14 +1,15 @@
-import { PipelineOptions } from "./Options";
-import { LogEntry } from "./Log";
-import { Stage, StageExecutor, StageFilter } from "./Stage";
-import { Payload, Payloadable } from "./Payload";
-import { PipelineEventListener } from "./Event";
+import { PipelineOptions } from ".";
+import { LogEntry } from ".";
+import { Stage, StageExecutor, StageFilter } from ".";
+import { Payload, Payloadable } from ".";
+import { PipelineEventListener } from ".";
 export interface PipeablePipelineInterface {
     asStage: () => Stage;
 }
 export declare type PipeableBase = Stage | PipeablePipelineInterface | StageExecutor;
 export declare type Pipeable = PipeableBase | Array<PipeableBase>;
 export declare type PipeableCondition = (payload: Payload, parent: ParentPipelineInterface) => boolean;
+export declare function isMinimalPipeline(param: any): param is MinimalPipelineInterface;
 export declare function isPipeablePipeline(param: any): param is PipeablePipelineInterface;
 export declare function isPipes(param: any): param is Array<Pipeable>;
 export declare function isPipe(param: any): param is Pipeable;

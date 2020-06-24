@@ -1,9 +1,9 @@
 import { is, isArrayOf } from "ts-type-guards";
-import { PipelineOptions, PipelineEventListenerOptions } from "./Options";
-import { LogEntry } from "./Log";
-import { isStage, Stage, StageExecutor, isStageExecutor, MakeStage, StageFilter } from "./Stage";
-import { Payload, isPromise, Payloadable } from "./Payload";
-import { PipelineEventListener, PipelineEventList, PipelineEventListenerData } from "./Event";
+import { PipelineOptions, PipelineEventListenerOptions } from ".";
+import { LogEntry } from ".";
+import { isStage, Stage, StageExecutor, isStageExecutor, MakeStage, StageFilter } from ".";
+import { Payload, isPromise, Payloadable } from ".";
+import { PipelineEventListener, PipelineEventListenerData } from ".";
 import { WriteFile, ReadFile } from "./fs/Stage";
 import { writePayload } from "./fs/Payload";
 
@@ -14,6 +14,10 @@ export interface PipeablePipelineInterface {
 export type PipeableBase = Stage | PipeablePipelineInterface | StageExecutor
 export type Pipeable = PipeableBase | Array<PipeableBase>
 export type PipeableCondition = (payload: Payload, parent: ParentPipelineInterface) => boolean
+
+export function isMinimalPipeline(param: any): param is MinimalPipelineInterface {
+  return is(Object)(param) && is(Function)(param.pipe) && is(Function)(param.process)
+}
 
 export function isPipeablePipeline(param: any): param is PipeablePipelineInterface {
   return is(Object)(param) && is(Function)(param.asStage)

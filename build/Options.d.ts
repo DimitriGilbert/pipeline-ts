@@ -1,7 +1,7 @@
-import { LogLevels } from "./Log";
-import { PipelineEventListener } from "./Event";
-import { Payload } from "./Payload";
-import { Pipeable } from "./Pipeline";
+import { LogLevels } from ".";
+import { PipelineEventListener } from ".";
+import { Payload } from ".";
+import { Pipeable } from ".";
 export declare type LogOptions = {
     keep?: boolean;
     level?: typeof LogLevels[number];

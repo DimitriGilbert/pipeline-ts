@@ -1,5 +1,5 @@
-import { Payload, Payloadable } from "./Payload";
-import { ParentPipelineInterface, PipeableCondition } from "./Pipeline";
+import { Payload, Payloadable } from ".";
+import { ParentPipelineInterface, PipeableCondition } from ".";
 export declare function isStageExecutor(param: any): param is StageExecutor & StageBase;
 export declare function isStage(param: any): param is Stage;
 export declare type StageBase = (payload: Payload, parent?: ParentPipelineInterface, index?: number) => Payload;

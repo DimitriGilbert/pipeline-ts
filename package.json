@@ -16,16 +16,21 @@
   "dependencies": {
     "@types/axios": "^0.14.0",
     "@types/fs-readdir-recursive": "^1.0.0",
-    "@types/node": "^13.13.4",
+    "@types/minimist": "^1.2.0",
+    "@types/node": "^13.13.12",
     "axios": "^0.19.2",
     "fs-readdir-recursive": "^1.1.0",
-    "ts-node": "^8.10.1",
+    "minimist": "^1.2.5",
+    "ts-node": "^8.10.2",
     "ts-type-guards": "^0.6.1",
-    "typescript": "^3.8.3"
+    "typescript": "^3.9.5"
   },
   "devDependencies": {
+    "@types/jest": "^25.2.3",
     "jest": "^26.0.1",
-    "ts-jest": "^25.5.0",
-    "@types/jest": "^25.2.1"
+    "ts-jest": "^25.5.1"
+  },
+  "bin": {
+    "pipeline":"build/bin.js"
   }
 }
