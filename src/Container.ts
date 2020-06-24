@@ -12,7 +12,7 @@ export type ContainerBaseEntry = {
 }
 
 export type ContainerPipeableEntry = {
-  pipeable: Pipeable
+  pipeable: (new () => Pipeable) | Pipeable
 } & ContainerBaseEntry
 
 export type ContainerContainerEntry = {
@@ -55,6 +55,12 @@ export function isContainer (param: any): param is Container {
     && typeof param.has === "function"
     && typeof param.get === "function"
     && typeof param.set === "function"
+}
+
+export type ContainerSetOptions = {
+  expects?: any,
+  provides?: any,
+  factory?: () => Pipeable
 }
 
 export class Container {
@@ -100,7 +106,7 @@ export class Container {
     return false
   }
 
-  set(name: string, content: Pipeable | Container, expects?: any, provides?: any): this {
+  set(name: string, content: Pipeable | Container, options?: ContainerSetOptions): this {
     let fqn = name.split(".")
     if (fqn.length >= 1) {
       if (!this.entries) {
@@ -114,7 +120,7 @@ export class Container {
             try {
               return this.set(
                 entryName,
-                entry.container.set(fqn.slice(1).join("."), content, expects, provides)
+                entry.container.set(fqn.slice(1).join("."), content, options)
               )
             }
             catch (err) {
@@ -133,13 +139,19 @@ export class Container {
       else if (isContainer(content)) {
         nEntry.container = content
       }
+
+      if (options) {
+        if (options.expects) {
+          nEntry.expects = options.expects
+        }
+        if (options.provides) {
+          nEntry.provides = options.provides
+        }
+        if (options.factory) {
+          nEntry.factory = options.factory
+        }
+      }
   
-      if (expects) {
-        nEntry.expects = expects
-      }
-      if (provides) {
-        nEntry.provides = provides
-      }
       if (isContainerEntry(nEntry)) {
         this.entries[entryName] = nEntry
       }
