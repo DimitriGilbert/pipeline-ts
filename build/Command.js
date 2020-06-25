@@ -81,11 +81,28 @@ class Command {
             }
             if (_1.hasEvent(this.pipeline)) {
                 this.pipeline.addEventListener('error', (ppl, data) => {
-                    console.log(ppl, data);
+                    console.error(ppl, data);
+                });
+                this.pipeline.addEventListener('done', (ppl, data) => {
+                    this.reportProgress({ payload: data });
+                });
+                this.pipeline.addEventListener('stage_start', (ppl, data) => {
+                    this.reportProgress(data);
+                });
+                this.pipeline.addEventListener('stage_beforeStage', (ppl, data) => {
+                    this.reportProgress(data);
                 });
                 this.pipeline.addEventListener('stage_afterStage', (ppl, data) => {
-                    var _a;
-                    console.log(`stage ${data.index}/${(_a = this.pipeline) === null || _a === void 0 ? void 0 : _a.stages.length} has done ${ppl.stageIndex + 1}/${ppl.stages.length}`);
+                    this.reportProgress(data);
+                });
+                this.pipeline.addEventListener('stage_stageSkiped', (ppl, data) => {
+                    this.reportProgress(data);
+                });
+                this.pipeline.addEventListener('stage_done', (ppl, data) => {
+                    this.reportProgress(data);
+                });
+                this.pipeline.addEventListener('stage_completed', (ppl, data) => {
+                    this.reportProgress(data);
                 });
             }
             this.stages.forEach((stage) => {
@@ -104,6 +121,31 @@ class Command {
                 resolve(result);
             }
         });
+    }
+    reportProgress(d) {
+        var _a;
+        let report = (_a = this.pipeline) === null || _a === void 0 ? void 0 : _a.progressReport();
+        let out = "Starting...";
+        if (report) {
+            out = `Command ${report.name}: ${report.status} ${report.status === "running" ? `${report.progress}% complete` : ""}`;
+            if (report.status === "running"
+                && d.payload
+                && d.payload.payload
+                && d.payload.payload.pipeline) {
+                let pReport = d.payload.payload.pipeline.progressReport();
+                out += `\n\t${pReport.name}: ${pReport.status} ${pReport.status === "running" ? `${pReport.progress}% complete` : ""}`;
+                if (d.payload.payload.pipeline.currentStage) {
+                    out += `\n\t\t${d.payload.payload.pipeline.currentStage.name} -> ${d.payload.payload.pipeline.currentStage.status}`;
+                }
+            }
+            else if (report.status === "done") {
+                report.stagesStatus.forEach((stageStatus, index) => {
+                    out += `\n\t${stageStatus.name} ${index + 1}/${report === null || report === void 0 ? void 0 : report.length} -> ${stageStatus.status}`;
+                });
+            }
+        }
+        console.clear();
+        console.log(out);
     }
 }
 exports.Command = Command;

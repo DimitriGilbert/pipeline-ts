@@ -62,6 +62,18 @@ export declare class Pipeline extends PipelineProperties implements MinimalPipel
     triggerEventListener(name: string, payload?: Payload, index?: number): void;
     pipe(stage: Pipeable, at?: number): this;
     addStage(stage: Stage, at?: number): this;
+    get currentStage(): Stage;
+    progressReport(): {
+        name: string;
+        status: string;
+        length: number;
+        index: number;
+        progress: number;
+        stagesStatus: {
+            name: string | undefined;
+            status: string | undefined;
+        }[];
+    };
     runStage(payload: Payload, index?: number): Promise<Payload>;
     completeStage(payload: Payload, status?: string, eventName?: string): void;
     complete(payload: Payload, status?: string, eventName?: string): void;

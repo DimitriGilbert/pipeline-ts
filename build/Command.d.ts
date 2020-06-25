@@ -1,6 +1,7 @@
 import { Container } from ".";
 import { Payloadable } from ".";
 import { Pipeable, Pipeline } from ".";
+import { PipelineEventListenerData } from "./Event";
 export declare const ReservedOptions: string[];
 export declare class Command {
     container: Container;
@@ -14,4 +15,5 @@ export declare class Command {
     parseStages(stagesStr: string | Array<string>): this;
     parsePipeline(pipelineStr: string): this;
     process(): Promise<unknown>;
+    reportProgress(d: PipelineEventListenerData): void;
 }

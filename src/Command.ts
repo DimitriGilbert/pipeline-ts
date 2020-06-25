@@ -2,6 +2,7 @@ import minimist from "minimist";
 import { Container, hasEvent } from ".";
 import { Payloadable, isPromise } from ".";
 import { Pipeable, MinimalPipelineInterface, isMinimalPipeline, Pipeline } from ".";
+import { PipelineEventListenerData } from "./Event";
 
 export const ReservedOptions = [
   "pipeline",
@@ -86,10 +87,29 @@ export class Command {
       }
       if (hasEvent(this.pipeline)) {
         this.pipeline.addEventListener('error', (ppl, data) => {
-          console.log(ppl, data)
+          console.error(ppl, data)
+        })
+        
+        this.pipeline.addEventListener('done', (ppl, data) => {
+          this.reportProgress({payload:data})
+        })
+        this.pipeline.addEventListener('stage_start', (ppl, data) => {
+          this.reportProgress(data)
+        })
+        this.pipeline.addEventListener('stage_beforeStage', (ppl, data) => {
+          this.reportProgress(data)
         })
         this.pipeline.addEventListener('stage_afterStage', (ppl, data) => {
-          console.log(`stage ${data.index}/${this.pipeline?.stages.length} has done ${ppl.stageIndex + 1}/${ppl.stages.length}`)
+          this.reportProgress(data)
+        })
+        this.pipeline.addEventListener('stage_stageSkiped', (ppl, data) => {
+          this.reportProgress(data)
+        })
+        this.pipeline.addEventListener('stage_done', (ppl, data) => {
+          this.reportProgress(data)
+        })
+        this.pipeline.addEventListener('stage_completed', (ppl, data) => {
+          this.reportProgress(data)
         })
       }
       this.stages.forEach((stage: Pipeable) => {
@@ -108,5 +128,32 @@ export class Command {
         resolve(result)
       }
     })
+  }
+
+  reportProgress(d: PipelineEventListenerData) {
+    let report = this.pipeline?.progressReport()
+    let out = "Starting..."
+    if (report) {
+      out = `Command ${report.name}: ${report.status} ${report.status==="running"?`${report.progress}% complete`:""}`
+
+      if (report.status==="running"
+        && d.payload
+        && d.payload.payload
+        && d.payload.payload.pipeline
+      ) {
+        let pReport = d.payload.payload.pipeline.progressReport()
+        out += `\n\t${pReport.name}: ${pReport.status} ${pReport.status==="running"?`${pReport.progress}% complete`:""}`
+        if (d.payload.payload.pipeline.currentStage) {
+          out += `\n\t\t${d.payload.payload.pipeline.currentStage.name} -> ${d.payload.payload.pipeline.currentStage.status}`
+        }
+      }
+      else if (report.status === "done") {
+        report.stagesStatus.forEach((stageStatus, index) => {
+          out += `\n\t${stageStatus.name} ${index + 1}/${report?.length} -> ${stageStatus.status}`
+        })
+      }
+    }
+    console.clear()
+    console.log(out)
   }
 }

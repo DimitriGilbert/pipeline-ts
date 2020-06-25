@@ -200,6 +200,10 @@ class Pipeline extends PipelineProperties {
             }
         }
         if (hasEvent(this.parent)) {
+            if (!d.payload) {
+                d.payload = {};
+            }
+            d.payload.pipeline = this;
             this.parent.triggerEventListener(`stage_${name}`, d, this.parentIndex);
         }
     }
@@ -246,6 +250,25 @@ class Pipeline extends PipelineProperties {
         }
         this.triggerEventListener('addStage', { stage: stage });
         return this;
+    }
+    get currentStage() {
+        return this.stages[this.stageIndex];
+    }
+    progressReport() {
+        let report = {
+            name: this.name,
+            status: this.status,
+            length: this.stages.length,
+            index: this.stageIndex,
+            progress: (this.stageIndex / this.stages.length) * 100,
+            stagesStatus: this.stages.map((stage) => {
+                return {
+                    name: stage.name,
+                    status: stage.status
+                };
+            })
+        };
+        return report;
     }
     runStage(payload, index) {
         return new Promise((resolve, reject) => {
@@ -339,6 +362,13 @@ class Pipeline extends PipelineProperties {
                 }
                 else {
                     this.completeStage(payload, 'skiped', 'stageSkiped');
+                    if (this.stageIndex >= this.stages.length) {
+                        this.complete(payload);
+                        resolve(this.output(payload));
+                    }
+                    else {
+                        resolve(this.stageLoop(payload));
+                    }
                 }
             }
         });
