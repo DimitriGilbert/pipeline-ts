@@ -164,19 +164,19 @@ class Pipeline extends PipelineProperties {
             message: `Event ${name}`,
             data: payload
         });
+        let d = {};
+        if (payload !== undefined) {
+            d.payload = payload;
+        }
+        if (index !== undefined) {
+            d.index = index;
+        }
         if (
         // name in PipelineEventList
         this.options.eventListeners
             // meeeehhhh
             // @ts-ignore
             && this.options.eventListeners[name]) {
-            let d = {};
-            if (payload !== undefined) {
-                d.payload = payload;
-            }
-            if (index !== undefined) {
-                d.index = index;
-            }
             // @ts-ignore
             if (ts_type_guards_1.is(Array)(this.options.eventListeners[name])) {
                 this.log(index ? index : -1, {
@@ -198,6 +198,9 @@ class Pipeline extends PipelineProperties {
                 // @ts-ignore
                 this.options.eventListeners[name](this, d);
             }
+        }
+        if (hasEvent(this.parent)) {
+            this.parent.triggerEventListener(`stage_${name}`, d, this.parentIndex);
         }
     }
     pipe(stage, at) {

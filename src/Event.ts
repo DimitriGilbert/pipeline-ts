@@ -1,5 +1,6 @@
 import { Payloadable } from "./Payload"
 import { Pipeline } from "./Pipeline"
+import { MinimalPipelineInterface } from "."
 
 
 export type PipelineEventListenerData = {

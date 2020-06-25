@@ -69,6 +69,7 @@ class Command {
     parsePipeline(pipelineStr) {
         let p = this.container.getInstance(pipelineStr);
         if (_3.isMinimalPipeline(p)) {
+            // @ts-ignore
             this.pipeline = p;
         }
         return this;
@@ -82,8 +83,9 @@ class Command {
                 this.pipeline.addEventListener('error', (ppl, data) => {
                     console.log(ppl, data);
                 });
-                this.pipeline.addEventListener('afterStage', (ppl, data) => {
-                    console.log(`done ${ppl.stageIndex + 1}/${ppl.stages.length}`);
+                this.pipeline.addEventListener('stage_afterStage', (ppl, data) => {
+                    var _a;
+                    console.log(`stage ${data.index}/${(_a = this.pipeline) === null || _a === void 0 ? void 0 : _a.stages.length} has done ${ppl.stageIndex + 1}/${ppl.stages.length}`);
                 });
             }
             this.stages.forEach((stage) => {

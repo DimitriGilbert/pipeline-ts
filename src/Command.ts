@@ -13,7 +13,7 @@ export class Command {
   args: Payloadable
   payload: Payloadable
   stages: Array<Pipeable> = []
-  pipeline?: MinimalPipelineInterface | Pipeline
+  pipeline?: Pipeline
 
   constructor (container: Container, args?: Array<string>) {
     this.container = container
@@ -73,6 +73,7 @@ export class Command {
   parsePipeline(pipelineStr: string): this {
     let p = this.container.getInstance(pipelineStr)
     if (isMinimalPipeline(p)) {
+      // @ts-ignore
       this.pipeline = p
     }
     return this
@@ -87,8 +88,8 @@ export class Command {
         this.pipeline.addEventListener('error', (ppl, data) => {
           console.log(ppl, data)
         })
-        this.pipeline.addEventListener('afterStage', (ppl, data) => {
-          console.log(`done ${ppl.stageIndex+1}/${ppl.stages.length}`)
+        this.pipeline.addEventListener('stage_afterStage', (ppl, data) => {
+          console.log(`stage ${data.index}/${this.pipeline?.stages.length} has done ${ppl.stageIndex + 1}/${ppl.stages.length}`)
         })
       }
       this.stages.forEach((stage: Pipeable) => {

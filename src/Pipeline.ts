@@ -219,6 +219,13 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
       message: `Event ${name}`,
       data: payload
     })
+    let d: PipelineEventListenerData = {}
+    if (payload !== undefined) {
+      d.payload = payload
+    }
+    if (index !== undefined) {
+      d.index = index
+    }
     if (
       // name in PipelineEventList
       this.options.eventListeners
@@ -226,13 +233,6 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
       // @ts-ignore
       && this.options.eventListeners[name]
     ) {
-      let d: PipelineEventListenerData = {}
-      if (payload !== undefined) {
-        d.payload = payload
-      }
-      if (index !== undefined) {
-        d.index = index
-      }
       // @ts-ignore
       if (is(Array)(this.options.eventListeners[name])) {
         this.log(index?index:-1, {
@@ -256,6 +256,9 @@ export class Pipeline extends PipelineProperties implements MinimalPipelineInter
         // @ts-ignore
         this.options.eventListeners[name](this, d)
       }
+    }
+    if (hasEvent(this.parent)) {
+      this.parent.triggerEventListener(`stage_${name}`, d, this.parentIndex)
     }
   }
 
